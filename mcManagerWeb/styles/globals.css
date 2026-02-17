@@ -3111,10 +3111,13 @@ label svg {
   display: flex;
   gap: 0.5rem;
   align-items: center;
+  position: relative;
+  z-index: 2;
 }
 
 .modpack-source-select {
   min-width: 120px;
+  width: auto !important;
   padding: 0.5rem;
   background: #1e293b;
   border: 1px solid #334155;
@@ -3125,6 +3128,10 @@ label svg {
 
 .modpack-search-input {
   flex: 1;
+  min-width: 0;
+  width: auto !important;
+  position: relative;
+  z-index: 1;
 }
 
 .modpack-search-btn {

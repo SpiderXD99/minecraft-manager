@@ -1,10 +1,23 @@
 // Mods API Client for Modrinth and CurseForge
 // Modrinth: No API key needed, 300 req/min limit
-// CurseForge: Requires CURSEFORGE_API_KEY environment variable
+// CurseForge: Requires API key (via Docker secret or env variable)
+
+const fs = require('fs');
 
 const MODRINTH_API = 'https://api.modrinth.com/v2';
 const CURSEFORGE_API = 'https://api.curseforge.com/v1';
 const MINECRAFT_GAME_ID = 432; // CurseForge game ID for Minecraft
+
+// Read CurseForge API key from Docker secret or env variable
+function getCurseforgeApiKey() {
+  // Try Docker secret first (no $ escaping needed)
+  try {
+    const key = fs.readFileSync('/run/secrets/curseforge_api_key', 'utf-8').trim();
+    if (key) return key;
+  } catch {}
+  // Fall back to environment variable
+  return process.env.CURSEFORGE_API_KEY || null;
+}
 
 // Loader mappings for different server types
 const LOADER_MAP = {
@@ -57,7 +70,7 @@ async function modrinthFetch(endpoint, options = {}) {
 
 // CurseForge API functions
 async function curseforgeFetch(endpoint, options = {}) {
-  const apiKey = process.env.CURSEFORGE_API_KEY;
+  const apiKey = getCurseforgeApiKey();
 
   if (!apiKey) {
     throw new Error('CurseForge API key not configured. Set CURSEFORGE_API_KEY environment variable.');
@@ -359,7 +372,7 @@ async function getModDetails(source, projectId) {
 
 // Check if CurseForge API is configured
 function isCurseforgeConfigured() {
-  return !!process.env.CURSEFORGE_API_KEY;
+  return !!getCurseforgeApiKey();
 }
 
 // Get dependencies for a Modrinth version

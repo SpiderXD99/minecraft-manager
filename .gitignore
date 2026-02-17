@@ -19,6 +19,8 @@ data/servers-config.json
 data/server-pids.json
 
 docker-compose.override.yml
+secrets/*
+!secrets/*.example
 
 .claude
 *.md
