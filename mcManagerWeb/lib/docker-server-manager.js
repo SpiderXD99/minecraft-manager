@@ -131,8 +131,9 @@ async function generateDockerCompose(serverId, server) {
   // Se siamo in un container Docker, converti il path in path dell'host
   let hostPath = minecraftDataDir;
   if (process.cwd().startsWith('/app')) {
-    // Siamo nel container minecraft-manager, converti /app -> /home/ubuntu/projects/minecraft-manager
-    hostPath = minecraftDataDir.replace('/app', '/home/ubuntu/projects/minecraft-manager');
+    // Siamo nel container minecraft-manager, converti /app -> path reale del progetto sull'host
+    const hostProjectRoot = process.env.HOST_PROJECT_ROOT;
+    hostPath = minecraftDataDir.replace('/app', hostProjectRoot);
   }
 
   // Costruisci la lista di porte da esporre e labels Traefik

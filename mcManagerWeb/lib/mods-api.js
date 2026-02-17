@@ -92,8 +92,8 @@ async function searchModrinth(query, options = {}) {
     facets.push(loaders.map(l => `categories:${l}`));
   }
 
-  // Game version filter
-  if (gameVersion) {
+  // Game version filter (skip "latest" - not a real version on Modrinth)
+  if (gameVersion && gameVersion !== 'latest') {
     facets.push([`versions:${gameVersion}`]);
   }
 
@@ -142,8 +142,8 @@ async function searchCurseforge(query, options = {}) {
     sortOrder: 'desc'
   });
 
-  // Add game version filter
-  if (gameVersion) {
+  // Add game version filter (skip "latest" - not a real version on CurseForge)
+  if (gameVersion && gameVersion !== 'latest') {
     params.append('gameVersion', gameVersion);
   }
 
@@ -231,7 +231,7 @@ async function getModrinthVersions(projectId, options = {}) {
     params.append('loaders', JSON.stringify(loaders));
   }
 
-  if (gameVersion) {
+  if (gameVersion && gameVersion !== 'latest') {
     params.append('game_versions', JSON.stringify([gameVersion]));
   }
 
@@ -258,7 +258,7 @@ async function getCurseforgeVersions(projectId, options = {}) {
 
   const params = new URLSearchParams();
 
-  if (gameVersion) {
+  if (gameVersion && gameVersion !== 'latest') {
     params.append('gameVersion', gameVersion);
   }
 

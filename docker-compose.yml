@@ -81,7 +81,8 @@ services:
       - MC_SUBDOMAIN_PREFIX=${MC_SUBDOMAIN_PREFIX:-mc}
       - DOCKER_NETWORK=minecraft-manager_default
       - PROJECT_ROOT=/app
-      - 'CURSEFORGE_API_KEY=$$2a$$10$$LMhc1WesSUdqMmx6ODUMl.Rf.mXrkznhccVjybbqN9dcK9fF6229u'
+      - HOST_PROJECT_ROOT=${PWD}
+      - CURSEFORGE_API_KEY=${CURSEFORGE_API_KEY}
     restart: unless-stopped
     networks:
       - default
