@@ -5,7 +5,8 @@ import {
   FolderOpen, Trash2, Save, X, Check, Loader,
   ArrowUpDown, ArrowUp, ArrowDown, Search,
   FileText, FileCode, FileJson, FileImage, FileArchive,
-  FileVideo, FileAudio, Settings, Database, FileSpreadsheet
+  FileVideo, FileAudio, Settings, Database, FileSpreadsheet,
+  WrapText
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
@@ -23,6 +24,13 @@ export default function FileManager({ serverId }) {
   const [renameTarget, setRenameTarget] = useState(null);
   const [newName, setNewName] = useState('');
   const [originalFileContent, setOriginalFileContent] = useState(''); // For cancel functionality
+  const [wordWrap, setWordWrap] = useState(false);
+  const [fileSearch, setFileSearch] = useState('');
+  const [fileSearchVisible, setFileSearchVisible] = useState(false);
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const editorRef = useRef(null);
+  const lineNumbersRef = useRef(null);
+  const previewRef = useRef(null);
 
   // Sorting state
   const [sortBy, setSortBy] = useState('name'); // 'name', 'size', 'modified'
@@ -440,6 +448,82 @@ export default function FileManager({ serverId }) {
     });
   };
 
+  // File content search - count matches
+  const getSearchMatches = () => {
+    if (!fileSearch || !fileContent) return 0;
+    try {
+      const regex = new RegExp(fileSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      const matches = fileContent.match(regex);
+      return matches ? matches.length : 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const totalMatches = fileSearchVisible ? getSearchMatches() : 0;
+
+  // Navigate to next/prev match in preview mode
+  const navigateMatch = (direction) => {
+    if (!previewRef.current || totalMatches === 0) return;
+    const highlights = previewRef.current.querySelectorAll('.fm-search-highlight');
+    if (highlights.length === 0) return;
+
+    let newIndex = currentMatchIndex + direction;
+    if (newIndex < 0) newIndex = highlights.length - 1;
+    if (newIndex >= highlights.length) newIndex = 0;
+    setCurrentMatchIndex(newIndex);
+
+    // Remove active class from all, add to current
+    highlights.forEach(el => el.classList.remove('fm-search-active'));
+    highlights[newIndex].classList.add('fm-search-active');
+    highlights[newIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  // Render text with search highlights
+  const renderHighlightedContent = (text) => {
+    if (!fileSearch || !text) return text;
+    try {
+      const escaped = fileSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(`(${escaped})`, 'gi');
+      const parts = text.split(regex);
+      let matchIdx = 0;
+      return parts.map((part, i) => {
+        if (regex.test(part)) {
+          regex.lastIndex = 0; // reset after test
+          const idx = matchIdx++;
+          return (
+            <mark key={i} className={`fm-search-highlight ${idx === currentMatchIndex ? 'fm-search-active' : ''}`}>
+              {part}
+            </mark>
+          );
+        }
+        return part;
+      });
+    } catch {
+      return text;
+    }
+  };
+
+  // Toggle search with Ctrl+F
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f' && selectedFile && fileContent !== null) {
+        e.preventDefault();
+        setFileSearchVisible(v => !v);
+        if (!fileSearchVisible) {
+          setFileSearch('');
+          setCurrentMatchIndex(0);
+        }
+      }
+      if (e.key === 'Escape' && fileSearchVisible) {
+        setFileSearchVisible(false);
+        setFileSearch('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedFile, fileContent, fileSearchVisible]);
+
   // Sorting logic
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -728,7 +812,7 @@ export default function FileManager({ serverId }) {
           <div className="fm-file-viewer">
             <div className="fm-viewer-header">
               <h3>{selectedFile.name}</h3>
-              <div>
+              <div className="fm-viewer-actions">
                 {fileContent === null ? (
                   // Binary file - only show download button
                   <button className="btn btn-sm btn-primary" onClick={() => downloadFile(selectedFile)}>
@@ -754,8 +838,70 @@ export default function FileManager({ serverId }) {
                     <Edit3 size={16} /> Modifica
                   </button>
                 )}
+                {fileContent !== null && (
+                  <>
+                    <button
+                      className={`btn btn-sm ${fileSearchVisible ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => { setFileSearchVisible(!fileSearchVisible); if (fileSearchVisible) { setFileSearch(''); } else { setCurrentMatchIndex(0); } }}
+                      title="Cerca nel file (Ctrl+F)"
+                    >
+                      <Search size={16} />
+                    </button>
+                    <button
+                      className={`btn btn-sm ${wordWrap ? 'btn-primary' : 'btn-secondary'}`}
+                      onClick={() => setWordWrap(!wordWrap)}
+                      title={wordWrap ? 'Disabilita Word Wrap' : 'Abilita Word Wrap'}
+                    >
+                      <WrapText size={16} />
+                    </button>
+                  </>
+                )}
+                <button className="btn btn-sm btn-secondary" onClick={() => { setSelectedFile(null); setEditMode(false); }} title="Chiudi">
+                  <X size={16} />
+                </button>
               </div>
             </div>
+            {fileSearchVisible && fileContent !== null && (
+              <div className="fm-file-search-bar">
+                <Search size={14} className="fm-file-search-icon" />
+                <input
+                  type="text"
+                  value={fileSearch}
+                  onChange={(e) => { setFileSearch(e.target.value); setCurrentMatchIndex(0); }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      navigateMatch(e.shiftKey ? -1 : 1);
+                    }
+                    if (e.key === 'Escape') {
+                      setFileSearchVisible(false);
+                      setFileSearch('');
+                    }
+                  }}
+                  placeholder="Cerca nel file..."
+                  className="fm-file-search-input"
+                  autoFocus
+                />
+                {fileSearch && (
+                  <span className="fm-file-search-count">
+                    {totalMatches > 0 ? `${currentMatchIndex + 1}/${totalMatches}` : 'Nessun risultato'}
+                  </span>
+                )}
+                {totalMatches > 0 && (
+                  <>
+                    <button className="fm-file-search-nav" onClick={() => navigateMatch(-1)} title="Precedente (Shift+Enter)">
+                      <ArrowUp size={14} />
+                    </button>
+                    <button className="fm-file-search-nav" onClick={() => navigateMatch(1)} title="Successivo (Enter)">
+                      <ArrowDown size={14} />
+                    </button>
+                  </>
+                )}
+                <button className="fm-file-search-nav" onClick={() => { setFileSearchVisible(false); setFileSearch(''); }} title="Chiudi (Esc)">
+                  <X size={14} />
+                </button>
+              </div>
+            )}
             <div className="fm-viewer-content">
               {fileContent === null ? (
                 // Binary file message
@@ -766,13 +912,36 @@ export default function FileManager({ serverId }) {
                   <p className="fm-binary-hint">Dimensione: {formatSize(selectedFile.size)}</p>
                 </div>
               ) : editMode ? (
-                <textarea
-                  value={fileContent}
-                  onChange={(e) => setFileContent(e.target.value)}
-                  className="fm-editor"
-                />
+                <div className={`fm-code-container ${wordWrap ? 'fm-wrap' : ''}`}>
+                  <div className="fm-line-numbers" ref={lineNumbersRef}>
+                    {fileContent.split('\n').map((_, i) => (
+                      <div key={i} className="fm-line-number">{i + 1}</div>
+                    ))}
+                  </div>
+                  <textarea
+                    ref={editorRef}
+                    value={fileContent}
+                    onChange={(e) => setFileContent(e.target.value)}
+                    onScroll={(e) => {
+                      if (lineNumbersRef.current) {
+                        lineNumbersRef.current.scrollTop = e.target.scrollTop;
+                      }
+                    }}
+                    className="fm-editor"
+                    spellCheck={false}
+                  />
+                </div>
               ) : (
-                <pre className="fm-preview">{fileContent}</pre>
+                <div className={`fm-code-container ${wordWrap ? 'fm-wrap' : ''}`}>
+                  <div className="fm-line-numbers">
+                    {fileContent.split('\n').map((_, i) => (
+                      <div key={i} className="fm-line-number">{i + 1}</div>
+                    ))}
+                  </div>
+                  <pre className="fm-preview" ref={previewRef}>
+                    {fileSearch && fileSearchVisible ? renderHighlightedContent(fileContent) : fileContent}
+                  </pre>
+                </div>
               )}
             </div>
           </div>
