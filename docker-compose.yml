@@ -1,0 +1,114 @@
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    command:
+      # API e Dashboard
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      # Provider Docker
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=minecraft-manager_default"
+      # Provider File per configurazione dinamica
+      - "--providers.file.directory=/etc/traefik/dynamic"
+      - "--providers.file.watch=true"
+      # Entrypoints
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      # Timeout for large file uploads (10 minutes)
+      - "--entrypoints.websecure.transport.respondingTimeouts.readTimeout=600s"
+      - "--entrypoints.websecure.transport.respondingTimeouts.writeTimeout=600s"
+      - "--entrypoints.websecure.transport.respondingTimeouts.idleTimeout=600s"
+      - "--entrypoints.web.transport.respondingTimeouts.readTimeout=600s"
+      - "--entrypoints.web.transport.respondingTimeouts.writeTimeout=600s"
+      - "--entrypoints.web.transport.respondingTimeouts.idleTimeout=600s"
+      # Log
+      - "--log.level=INFO"
+      - "--accesslog=true"
+      # Certificati SSL con Let's Encrypt
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@example.com}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"       # HTTP
+      - "443:443"     # HTTPS
+      - "8080:8080"   # Traefik Dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik-letsencrypt:/letsencrypt
+      - ./mcManagerWeb/data/traefik:/etc/traefik/dynamic:ro
+    networks:
+      - default
+    restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      # Dashboard
+      - "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN:-traefik.example.com}`)"
+      - "traefik.http.routers.traefik.service=api@internal"
+      - "traefik.http.routers.traefik.entrypoints=web"
+
+  mc-router:
+    image: itzg/mc-router:latest
+    container_name: mc-router
+    ports:
+      - "25565:25565"
+    environment:
+      - API_BINDING=:8080
+      - MAPPING=${MC_ROUTER_MAPPING:-}
+    command:
+      - --port=25565
+      - --api-binding=:8080
+      - --in-docker-swarm=false
+      - --use-proxy-protocol=false
+    networks:
+      - default
+    restart: unless-stopped
+
+  minecraft-manager:
+    image: oven/bun:1-alpine
+    container_name: minecraft-manager
+    working_dir: /app/mcManagerWeb
+    command: sh -c "apk add --no-cache docker-cli docker-compose && bun install && bun run dev"
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - NODE_ENV=development
+      - HOSTNAME=0.0.0.0
+      - PORT=3000
+      - BASE_DOMAIN=${BASE_DOMAIN:-example.com}
+      - MC_SUBDOMAIN_PREFIX=${MC_SUBDOMAIN_PREFIX:-mc}
+      - DOCKER_NETWORK=minecraft-manager_default
+      - PROJECT_ROOT=/app
+      - 'CURSEFORGE_API_KEY=$$2a$$10$$LMhc1WesSUdqMmx6ODUMl.Rf.mXrkznhccVjybbqN9dcK9fF6229u'
+    restart: unless-stopped
+    networks:
+      - default
+    labels:
+      - "traefik.enable=true"
+      # HTTP Router - redirect to HTTPS
+      - "traefik.http.routers.minecraft-manager.rule=Host(`${MANAGER_DOMAIN:-manager.example.com}`)"
+      - "traefik.http.routers.minecraft-manager.entrypoints=web"
+      - "traefik.http.routers.minecraft-manager.middlewares=redirect-to-https"
+      # HTTPS Router
+      - "traefik.http.routers.minecraft-manager-secure.rule=Host(`${MANAGER_DOMAIN:-manager.example.com}`)"
+      - "traefik.http.routers.minecraft-manager-secure.entrypoints=websecure"
+      - "traefik.http.routers.minecraft-manager-secure.tls=true"
+      - "traefik.http.routers.minecraft-manager-secure.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.minecraft-manager-secure.middlewares=upload-timeout"
+      # Service
+      - "traefik.http.services.minecraft-manager.loadbalancer.server.port=3000"
+      # Middleware for HTTP to HTTPS redirect
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
+      # Upload middleware (disable buffering for large file uploads)
+      - "traefik.http.middlewares.upload-timeout.buffering.maxRequestBodyBytes=0"
+      - "traefik.http.middlewares.upload-timeout.buffering.memRequestBodyBytes=0"
+
+volumes:
+  traefik-letsencrypt:
+
+networks:
+  default:
+    name: minecraft-manager_default
