@@ -82,6 +82,13 @@ export const FORM_PARSE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 export const UPLOAD_TEMP_DIR = '/tmp';
 
 // ==============================================================================
+// RAM OPTIONS
+// ==============================================================================
+
+/** RAM options for dropdowns (in MB) */
+export const RAM_OPTIONS = [256, 512, 1024, 2048, 3072, 4096, 6144, 8192, 10240, 12288, 16384];
+
+// ==============================================================================
 // DOCKER IMAGES
 // ==============================================================================
 
@@ -183,6 +190,7 @@ if (typeof module !== 'undefined' && module.exports) {
     UPLOAD_TIMEOUT,
     FORM_PARSE_TIMEOUT,
     UPLOAD_TEMP_DIR,
+    RAM_OPTIONS,
     DOCKER_IMAGES,
     SERVER_TYPES,
     COMMON_COMMANDS,

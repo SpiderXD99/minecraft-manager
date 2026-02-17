@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   } else if (req.method === 'POST') {
     // POST: Crea nuovo server
     try {
-      const { name, subdomain, javaVersion, serverType, minecraftVersion, maxRam, minRam, additionalPorts } = req.body;
+      const { name, subdomain, javaVersion, serverType, minecraftVersion, maxRam, minRam, additionalPorts, modpack } = req.body;
       const serverId = uuidv4();
 
       // Genera subdomain: usa quello fornito o genera dal nome
@@ -45,6 +45,7 @@ export default async function handler(req, res) {
         minRam: minRam || 1024,
         port: MINECRAFT_PORT,
         additionalPorts: additionalPorts || {},
+        ...(modpack ? { modpack } : {}),
         createdAt: new Date().toISOString()
       };
 

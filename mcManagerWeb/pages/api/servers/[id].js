@@ -23,8 +23,10 @@ export default async function handler(req, res) {
       config[index] = { ...oldServer, ...updates };
       await saveConfig(config);
 
-      // Se il subdomain o il nome sono cambiati, rigenera il docker-compose e aggiorna mc-router
-      if (updates.subdomain !== undefined || updates.name !== undefined) {
+      // Rigenera il docker-compose se sono cambiate proprietà che lo influenzano
+      const needsRegenerate = ['subdomain', 'name', 'serverType', 'javaVersion', 'minecraftVersion', 'maxRam', 'minRam', 'additionalPorts']
+        .some(key => updates[key] !== undefined);
+      if (needsRegenerate) {
         await generateDockerCompose(id, config[index]);
         await updateDockerComposeMappings(config);
       }

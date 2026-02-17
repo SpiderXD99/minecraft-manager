@@ -4,7 +4,7 @@ import ModsManager from './ModsManager';
 import { useConfig } from '../lib/config-context';
 import { getServerSubdomain, normalizeSubdomain } from '../lib/utils';
 import { useCopyToClipboard } from '../lib/hooks/useCopyToClipboard';
-import { COMMON_COMMANDS, LOG_POLL_INTERVAL, SERVICE_SUBDOMAIN_PREFIXES, SERVICE_PROTOCOLS } from '../lib/constants';
+import { COMMON_COMMANDS, LOG_POLL_INTERVAL, SERVICE_SUBDOMAIN_PREFIXES, SERVICE_PROTOCOLS, SERVER_TYPES, DOCKER_IMAGES, RAM_OPTIONS } from '../lib/constants';
 import {
   Play, Square, Zap, Trash2, Edit3, Check, X, Copy, ExternalLink, Plus, Globe, Wifi,
   ArrowDownToLine, Pause, RotateCw
@@ -255,6 +255,8 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
       name: server.name,
       subdomain: server.subdomain || '',
       minecraftVersion: server.minecraftVersion || 'latest',
+      serverType: server.serverType || 'paper',
+      javaVersion: server.javaVersion || '21',
       maxRam: server.maxRam,
       minRam: server.minRam,
       additionalServices
@@ -334,6 +336,8 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         name: editedServer.name,
         subdomain: editedServer.subdomain,
         minecraftVersion: editedServer.minecraftVersion,
+        serverType: editedServer.serverType,
+        javaVersion: editedServer.javaVersion,
         maxRam: editedServer.maxRam,
         minRam: editedServer.minRam,
         additionalPorts
@@ -512,7 +516,19 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
                 </div>
                 <div className="detail-item">
                   <label>Server Type</label>
-                  <div className="value">{server.serverType || 'paper'}</div>
+                  {isEditing ? (
+                    <select
+                      className="value-input"
+                      value={editedServer.serverType}
+                      onChange={(e) => setEditedServer({...editedServer, serverType: e.target.value})}
+                    >
+                      {Object.keys(SERVER_TYPES).map(type => (
+                        <option key={type} value={type}>{type.charAt(0).toUpperCase() + type.slice(1)}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="value">{(server.serverType || 'paper').charAt(0).toUpperCase() + (server.serverType || 'paper').slice(1)}</div>
+                  )}
                 </div>
                 <div className="detail-item">
                   <label>Minecraft Version</label>
@@ -529,38 +545,52 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
                   )}
                 </div>
                 <div className="detail-item">
-                  <label>RAM Min (MB)</label>
+                  <label>RAM Min</label>
                   {isEditing ? (
-                    <input
-                      type="number"
+                    <select
                       className="value-input"
                       value={editedServer.minRam}
                       onChange={(e) => setEditedServer({...editedServer, minRam: parseInt(e.target.value)})}
-                      min="512"
-                      step="256"
-                    />
+                    >
+                      {RAM_OPTIONS.map(mb => (
+                        <option key={mb} value={mb}>{mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`}</option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="value">{server.minRam} MB</div>
+                    <div className="value">{server.minRam >= 1024 ? `${server.minRam / 1024} GB` : `${server.minRam} MB`}</div>
                   )}
                 </div>
                 <div className="detail-item">
-                  <label>RAM Max (MB)</label>
+                  <label>RAM Max</label>
                   {isEditing ? (
-                    <input
-                      type="number"
+                    <select
                       className="value-input"
                       value={editedServer.maxRam}
                       onChange={(e) => setEditedServer({...editedServer, maxRam: parseInt(e.target.value)})}
-                      min="1024"
-                      step="256"
-                    />
+                    >
+                      {RAM_OPTIONS.map(mb => (
+                        <option key={mb} value={mb}>{mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`}</option>
+                      ))}
+                    </select>
                   ) : (
-                    <div className="value">{server.maxRam} MB</div>
+                    <div className="value">{server.maxRam >= 1024 ? `${server.maxRam / 1024} GB` : `${server.maxRam} MB`}</div>
                   )}
                 </div>
                 <div className="detail-item">
                   <label>Java Version</label>
-                  <div className="value">{server.javaVersion}</div>
+                  {isEditing ? (
+                    <select
+                      className="value-input"
+                      value={editedServer.javaVersion}
+                      onChange={(e) => setEditedServer({...editedServer, javaVersion: e.target.value})}
+                    >
+                      {Object.keys(DOCKER_IMAGES).map(version => (
+                        <option key={version} value={version}>Java {version}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="value">Java {server.javaVersion}</div>
+                  )}
                 </div>
                 <div className="detail-item">
                   <label>Server ID</label>
@@ -831,6 +861,8 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
             serverId={server.id}
             serverType={server.serverType || 'paper'}
             minecraftVersion={server.minecraftVersion}
+            modpack={server.modpack || null}
+            onUpdate={onUpdate}
           />
         )}
       </div>

@@ -1,6 +1,7 @@
 const { exec, spawn } = require('child_process');
 const { promisify } = require('util');
 const fs = require('fs').promises;
+const fsSync = require('fs');
 const path = require('path');
 const { updateDockerComposeMappings } = require('./mc-router-config');
 const { normalizeSubdomain } = require('./utils');
@@ -220,6 +221,54 @@ async function generateDockerCompose(serverId, server) {
     ...(traefikLabels.length > 0 ? ['      # Traefik routing per servizi aggiuntivi', ...traefikLabels] : [])
   ].join('\n');
 
+  // Build environment variables
+  const envVars = [
+    'EULA=TRUE',
+    `VERSION=${server.minecraftVersion || 'LATEST'}`,
+    'SERVER_PORT=25565',
+    `MEMORY=${server.maxRam}M`,
+    `INIT_MEMORY=${server.minRam}M`,
+    `MAX_MEMORY=${server.maxRam}M`,
+    'ONLINE_MODE=TRUE',
+    'CREATE_CONSOLE_IN_PIPE=true'
+  ];
+
+  // Modpack or normal server type
+  let needsCfSecret = false;
+  if (server.modpack) {
+    if (server.modpack.source === 'modrinth') {
+      envVars.push('TYPE=MODRINTH');
+      envVars.push(`MODRINTH_MODPACK=${server.modpack.slug}`);
+    } else if (server.modpack.source === 'curseforge') {
+      envVars.push('TYPE=AUTO_CURSEFORGE');
+      envVars.push(`CF_SLUG=${server.modpack.slug}`);
+      // Use CF_API_KEY_FILE to read from Docker secret (avoids $ interpolation issues)
+      envVars.push('CF_API_KEY_FILE=/run/secrets/curseforge_api_key');
+      needsCfSecret = true;
+    }
+  } else {
+    envVars.push(`TYPE=${serverType}`);
+  }
+
+  const envLines = envVars.map(v => `      - ${v}`).join('\n');
+
+  // Build secrets section if needed
+  let secretsServiceSection = '';
+  let secretsTopSection = '';
+  if (needsCfSecret) {
+    // Compute host path to secrets file
+    const hostProjectRoot = process.env.HOST_PROJECT_ROOT || path.join(process.cwd(), '..');
+    const secretsHostPath = path.join(hostProjectRoot, 'secrets', 'curseforge_api_key');
+    secretsServiceSection = `    secrets:
+      - curseforge_api_key
+`;
+    secretsTopSection = `
+secrets:
+  curseforge_api_key:
+    file: ${secretsHostPath}
+`;
+  }
+
   const dockerComposeContent = `services:
   minecraft-server:
     image: ${dockerImage}
@@ -229,16 +278,8 @@ ${exposeLines}
 ${udpPortsLines}    volumes:
       - ${hostPath}:/data
     environment:
-      - EULA=TRUE
-      - TYPE=${serverType}
-      - VERSION=${server.minecraftVersion || 'LATEST'}
-      - SERVER_PORT=25565
-      - MEMORY=${server.maxRam}M
-      - INIT_MEMORY=${server.minRam}M
-      - MAX_MEMORY=${server.maxRam}M
-      - ONLINE_MODE=TRUE
-      - CREATE_CONSOLE_IN_PIPE=true
-    networks:
+${envLines}
+${secretsServiceSection}    networks:
       - minecraft-manager_default
     restart: unless-stopped
     labels:
@@ -247,7 +288,7 @@ ${allLabels}
 networks:
   minecraft-manager_default:
     external: true
-`;
+${secretsTopSection}`;
 
   const composeFile = path.join(serverDir, 'docker-compose.yml');
 

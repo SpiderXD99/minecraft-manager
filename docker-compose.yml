@@ -73,6 +73,8 @@ services:
     volumes:
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
+    secrets:
+      - curseforge_api_key
     environment:
       - NODE_ENV=development
       - HOSTNAME=0.0.0.0
@@ -82,7 +84,6 @@ services:
       - DOCKER_NETWORK=minecraft-manager_default
       - PROJECT_ROOT=/app
       - HOST_PROJECT_ROOT=${PWD}
-      - CURSEFORGE_API_KEY=${CURSEFORGE_API_KEY}
     restart: unless-stopped
     networks:
       - default
@@ -106,6 +107,10 @@ services:
       # Upload middleware (disable buffering for large file uploads)
       - "traefik.http.middlewares.upload-timeout.buffering.maxRequestBodyBytes=0"
       - "traefik.http.middlewares.upload-timeout.buffering.memRequestBodyBytes=0"
+
+secrets:
+  curseforge_api_key:
+    file: ./secrets/curseforge_api_key
 
 volumes:
   traefik-letsencrypt:
