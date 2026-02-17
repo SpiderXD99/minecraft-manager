@@ -6,7 +6,7 @@ import {
   ArrowDownWideNarrow, Calendar, Type, Link2
 } from 'lucide-react';
 
-export default function ModsManager({ serverId, serverType, minecraftVersion }) {
+export default function ModsManager({ serverId, serverType, minecraftVersion, modpack, onUpdate }) {
   // Tab state
   const [activeTab, setActiveTab] = useState('browse'); // 'browse', 'installed', 'updates'
 
@@ -56,6 +56,13 @@ export default function ModsManager({ serverId, serverType, minecraftVersion }) 
   const [checkingDependencies, setCheckingDependencies] = useState({});
   const [selectedDependencies, setSelectedDependencies] = useState(new Set());
   const [installingDependencies, setInstallingDependencies] = useState(false);
+
+  // Modpack management state
+  const [modpackSearch, setModpackSearch] = useState('');
+  const [modpackResults, setModpackResults] = useState([]);
+  const [modpackSearching, setModpackSearching] = useState(false);
+  const [modpackInstalling, setModpackInstalling] = useState(false);
+  const [removingModpack, setRemovingModpack] = useState(false);
 
   // Determine project type based on server type
   const projectType = ['paper', 'spigot', 'purpur', 'velocity', 'waterfall'].includes(serverType)
@@ -548,6 +555,78 @@ export default function ModsManager({ serverId, serverType, minecraftVersion }) 
     );
   };
 
+  // Modpack functions
+  const searchModpacks = async () => {
+    if (!modpackSearch.trim()) return;
+    setModpackSearching(true);
+    try {
+      const params = new URLSearchParams({
+        q: modpackSearch,
+        source: source,
+        projectType: 'modpack',
+        limit: '20'
+      });
+      const res = await fetch(`/api/mods/search?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModpackResults(data.mods || []);
+      }
+    } catch (error) {
+      console.error('Modpack search error:', error);
+    } finally {
+      setModpackSearching(false);
+    }
+  };
+
+  const installModpack = async (mp) => {
+    if (!confirm(`Installare il modpack "${mp.name}"? Il server type verrà gestito dal modpack. Richiederà un riavvio del server.`)) return;
+    setModpackInstalling(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/modpack`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: mp.source,
+          slug: mp.slug,
+          name: mp.name,
+          projectId: mp.id
+        })
+      });
+      if (res.ok) {
+        setModpackResults([]);
+        setModpackSearch('');
+        if (onUpdate) onUpdate();
+        alert('Modpack configurato! Riavvia il server per applicare.');
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Errore installazione modpack');
+      }
+    } catch (error) {
+      alert('Errore installazione modpack');
+    } finally {
+      setModpackInstalling(false);
+    }
+  };
+
+  const removeModpack = async () => {
+    if (!confirm('Rimuovere il modpack? Il server tornerà alla configurazione normale. Richiederà un riavvio.')) return;
+    setRemovingModpack(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/modpack`, { method: 'DELETE' });
+      if (res.ok) {
+        if (onUpdate) onUpdate();
+        alert('Modpack rimosso! Riavvia il server per applicare.');
+      } else {
+        const data = await res.json();
+        alert(data.error || 'Errore rimozione modpack');
+      }
+    } catch (error) {
+      alert('Errore rimozione modpack');
+    } finally {
+      setRemovingModpack(false);
+    }
+  };
+
   return (
     <div className="mods-manager">
       {/* Unified Header - Tabs + Source + Search in one row */}
@@ -576,6 +655,13 @@ export default function ModsManager({ serverId, serverType, minecraftVersion }) 
           >
             <ArrowUpCircle size={14} />
             Aggiornamenti {updates.length > 0 && `(${updates.length})`}
+          </button>
+          <button
+            className={`mods-tab ${activeTab === 'modpack' ? 'active' : ''}`}
+            onClick={() => setActiveTab('modpack')}
+          >
+            <Box size={14} />
+            Modpack {modpack && '●'}
           </button>
         </div>
 
@@ -935,6 +1021,90 @@ export default function ModsManager({ serverId, serverType, minecraftVersion }) 
                 </button>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modpack Tab */}
+      {activeTab === 'modpack' && (
+        <div className="mods-modpack-tab">
+          {/* Current modpack banner */}
+          {modpack ? (
+            <div className="modpack-active-banner">
+              <div className="modpack-active-info">
+                <Box size={20} />
+                <div>
+                  <strong>{modpack.name}</strong>
+                  <span className={`modpack-source-badge ${modpack.source}`}>{modpack.source}</span>
+                </div>
+              </div>
+              <button
+                className="btn btn-danger modpack-remove-btn"
+                onClick={removeModpack}
+                disabled={removingModpack}
+              >
+                {removingModpack ? <Loader size={14} className="spin" /> : <Trash2 size={14} />}
+                Rimuovi Modpack
+              </button>
+            </div>
+          ) : (
+            <div className="modpack-empty-banner">
+              <Box size={20} />
+              <span>Nessun modpack installato. Cerca e installa un modpack qui sotto.</span>
+            </div>
+          )}
+
+          {/* Modpack search */}
+          <div className="modpack-search-section">
+            <div className="modpack-search-bar">
+              <Search size={14} />
+              <input
+                type="text"
+                placeholder="Cerca modpack..."
+                value={modpackSearch}
+                onChange={(e) => setModpackSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') searchModpacks(); }}
+              />
+              <button onClick={searchModpacks} disabled={modpackSearching || !modpackSearch.trim()}>
+                {modpackSearching ? <Loader size={14} className="spin" /> : 'Cerca'}
+              </button>
+            </div>
+
+            {modpackResults.length > 0 && (
+              <div className="modpack-results-list">
+                {modpackResults.map(mp => (
+                  <div key={`${mp.source}-${mp.id}`} className="modpack-result-card">
+                    {mp.icon && <img src={mp.icon} alt="" className="modpack-result-icon" />}
+                    <div className="modpack-result-info">
+                      <div className="modpack-result-header">
+                        <span className="modpack-result-name">{mp.name}</span>
+                        <span className={`modpack-source-badge ${mp.source}`}>{mp.source}</span>
+                      </div>
+                      <div className="modpack-result-meta">
+                        <span>{mp.author}</span>
+                        <span>{mp.downloads?.toLocaleString()} downloads</span>
+                      </div>
+                      <p className="modpack-result-desc">{mp.description}</p>
+                    </div>
+                    <button
+                      className="btn btn-primary modpack-install-btn"
+                      onClick={() => installModpack(mp)}
+                      disabled={modpackInstalling}
+                    >
+                      {modpackInstalling ? <Loader size={14} className="spin" /> : <Download size={14} />}
+                      Installa
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {!modpackSearching && modpackResults.length === 0 && modpackSearch && (
+              <div className="mods-empty">
+                <Package size={24} />
+                <span>Cerca un modpack per iniziare</span>
+              </div>
+            )}
           </div>
         </div>
       )}

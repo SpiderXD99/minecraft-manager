@@ -33,6 +33,7 @@ const MOD_FOLDER_MAP = {
 // CurseForge class IDs
 const CF_CLASS_MODS = 6;
 const CF_CLASS_PLUGINS = 5;
+const CF_CLASS_MODPACKS = 4471;
 
 // User-Agent for Modrinth
 const USER_AGENT = 'MCManager/1.0.0 (github.com/minecraft-manager)';
@@ -130,7 +131,7 @@ async function searchCurseforge(query, options = {}) {
   const { loaders = [], gameVersion = '', limit = 20, offset = 0, projectType = 'mod' } = options;
 
   // Determine class ID based on project type
-  const classId = projectType === 'plugin' ? CF_CLASS_PLUGINS : CF_CLASS_MODS;
+  const classId = projectType === 'modpack' ? CF_CLASS_MODPACKS : (projectType === 'plugin' ? CF_CLASS_PLUGINS : CF_CLASS_MODS);
 
   const params = new URLSearchParams({
     gameId: MINECRAFT_GAME_ID.toString(),

@@ -861,6 +861,8 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
             serverId={server.id}
             serverType={server.serverType || 'paper'}
             minecraftVersion={server.minecraftVersion}
+            modpack={server.modpack || null}
+            onUpdate={onUpdate}
           />
         )}
       </div>

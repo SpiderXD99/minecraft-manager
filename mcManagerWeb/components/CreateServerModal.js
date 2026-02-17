@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useConfig } from '../lib/config-context';
 import { normalizeSubdomain } from '../lib/utils';
 import { RAM_OPTIONS } from '../lib/constants';
-import { Plus, Trash2, Globe, Wifi } from 'lucide-react';
+import { Plus, Trash2, Globe, Wifi, Search, Package, X } from 'lucide-react';
 
 function CreateServerModal({ onClose, onCreate }) {
   const { mcDomain, baseDomain } = useConfig();
@@ -17,6 +17,14 @@ function CreateServerModal({ onClose, onCreate }) {
     minRam: 1024,
     additionalServices: []
   });
+
+  // Modpack state
+  const [isModpackMode, setIsModpackMode] = useState(false);
+  const [modpackSearch, setModpackSearch] = useState('');
+  const [modpackSource, setModpackSource] = useState('modrinth');
+  const [modpackResults, setModpackResults] = useState([]);
+  const [modpackLoading, setModpackLoading] = useState(false);
+  const [selectedModpack, setSelectedModpack] = useState(null);
 
   // Template servizi comuni (per quick add)
   const serviceTemplates = [
@@ -57,6 +65,42 @@ function CreateServerModal({ onClose, onCreate }) {
       name: newName,
       subdomain: generatedSubdomain
     });
+  };
+
+  // Modpack search
+  const searchModpacks = useCallback(async () => {
+    if (!modpackSearch.trim()) return;
+    setModpackLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: modpackSearch,
+        source: modpackSource,
+        projectType: 'modpack',
+        limit: '20'
+      });
+      const res = await fetch(`/api/mods/search?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModpackResults(data.mods || []);
+      }
+    } catch (error) {
+      console.error('Modpack search error:', error);
+    } finally {
+      setModpackLoading(false);
+    }
+  }, [modpackSearch, modpackSource]);
+
+  const handleModpackSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      searchModpacks();
+    }
+  };
+
+  const selectModpack = (modpack) => {
+    setSelectedModpack(modpack);
+    setModpackResults([]);
+    setModpackSearch('');
   };
 
   // Aggiungi servizio vuoto
@@ -110,6 +154,10 @@ function CreateServerModal({ onClose, onCreate }) {
       alert('Inserisci un sottodominio per il server');
       return;
     }
+    if (isModpackMode && !selectedModpack) {
+      alert('Seleziona un modpack');
+      return;
+    }
 
     // Converti additionalServices in additionalPorts per il backend
     const additionalPorts = {};
@@ -128,7 +176,15 @@ function CreateServerModal({ onClose, onCreate }) {
     const serverData = {
       ...formData,
       additionalPorts,
-      additionalServices: undefined // Rimuovi dal payload
+      additionalServices: undefined,
+      ...(isModpackMode && selectedModpack ? {
+        modpack: {
+          source: selectedModpack.source,
+          slug: selectedModpack.slug,
+          name: selectedModpack.name,
+          projectId: selectedModpack.id
+        }
+      } : {})
     };
 
     onCreate(serverData);
@@ -143,6 +199,27 @@ function CreateServerModal({ onClose, onCreate }) {
         </div>
 
         <form onSubmit={handleSubmit}>
+          {/* Mode Toggle */}
+          <div className="form-group">
+            <div className="mode-toggle">
+              <button
+                type="button"
+                className={`mode-toggle-btn ${!isModpackMode ? 'active' : ''}`}
+                onClick={() => { setIsModpackMode(false); setSelectedModpack(null); }}
+              >
+                Server Normale
+              </button>
+              <button
+                type="button"
+                className={`mode-toggle-btn ${isModpackMode ? 'active' : ''}`}
+                onClick={() => setIsModpackMode(true)}
+              >
+                <Package size={14} />
+                Da Modpack
+              </button>
+            </div>
+          </div>
+
           <div className="form-group">
             <label>Nome Server *</label>
             <input
@@ -168,32 +245,113 @@ function CreateServerModal({ onClose, onCreate }) {
             </small>
           </div>
 
-          <div className="form-group">
-            <label>Tipo Server *</label>
-            <select
-              value={formData.serverType}
-              onChange={e => setFormData({...formData, serverType: e.target.value})}
-              required
-            >
-              {serverTypes.map(type => (
-                <option key={type.id} value={type.id}>
-                  {type.name} - {type.desc}
-                </option>
-              ))}
-            </select>
-            <small>Il JAR verrà scaricato automaticamente da itzg/minecraft-server</small>
-          </div>
+          {/* Modpack Search Section */}
+          {isModpackMode ? (
+            <div className="form-group">
+              <label>Modpack *</label>
+              {selectedModpack ? (
+                <div className="modpack-selected">
+                  {selectedModpack.icon && (
+                    <img src={selectedModpack.icon} alt="" className="modpack-selected-icon" />
+                  )}
+                  <div className="modpack-selected-info">
+                    <strong>{selectedModpack.name}</strong>
+                    <span className="modpack-selected-source">{selectedModpack.source}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="modpack-remove-btn"
+                    onClick={() => setSelectedModpack(null)}
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="modpack-search-row">
+                    <select
+                      value={modpackSource}
+                      onChange={e => setModpackSource(e.target.value)}
+                      className="modpack-source-select"
+                    >
+                      <option value="modrinth">Modrinth</option>
+                      <option value="curseforge">CurseForge</option>
+                      <option value="both">Entrambi</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={modpackSearch}
+                      onChange={e => setModpackSearch(e.target.value)}
+                      onKeyDown={handleModpackSearchKeyDown}
+                      placeholder="Cerca modpack..."
+                      className="modpack-search-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={searchModpacks}
+                      className="btn btn-secondary modpack-search-btn"
+                      disabled={modpackLoading}
+                    >
+                      <Search size={16} />
+                    </button>
+                  </div>
+                  {modpackLoading && <div className="modpack-loading">Ricerca in corso...</div>}
+                  {modpackResults.length > 0 && (
+                    <div className="modpack-results">
+                      {modpackResults.map(mp => (
+                        <div
+                          key={`${mp.source}-${mp.id}`}
+                          className="modpack-result-item"
+                          onClick={() => selectModpack(mp)}
+                        >
+                          {mp.icon && <img src={mp.icon} alt="" className="modpack-result-icon" />}
+                          <div className="modpack-result-info">
+                            <div className="modpack-result-name">{mp.name}</div>
+                            <div className="modpack-result-meta">
+                              <span className={`modpack-source-badge ${mp.source}`}>{mp.source}</span>
+                              <span>{mp.author}</span>
+                              <span>{mp.downloads?.toLocaleString()} downloads</span>
+                            </div>
+                            <div className="modpack-result-desc">{mp.description}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
+              <small>Il tipo di server e le mod verranno configurati automaticamente dal modpack</small>
+            </div>
+          ) : (
+            <>
+              <div className="form-group">
+                <label>Tipo Server *</label>
+                <select
+                  value={formData.serverType}
+                  onChange={e => setFormData({...formData, serverType: e.target.value})}
+                  required
+                >
+                  {serverTypes.map(type => (
+                    <option key={type.id} value={type.id}>
+                      {type.name} - {type.desc}
+                    </option>
+                  ))}
+                </select>
+                <small>Il JAR verrà scaricato automaticamente da itzg/minecraft-server</small>
+              </div>
 
-          <div className="form-group">
-            <label>Versione Minecraft</label>
-            <input
-              type="text"
-              value={formData.minecraftVersion}
-              onChange={e => setFormData({...formData, minecraftVersion: e.target.value})}
-              placeholder="latest, 1.20.4, 1.19.4, etc."
-            />
-            <small>Usa "latest" per l'ultima versione disponibile, oppure specifica una versione (es: 1.20.4)</small>
-          </div>
+              <div className="form-group">
+                <label>Versione Minecraft</label>
+                <input
+                  type="text"
+                  value={formData.minecraftVersion}
+                  onChange={e => setFormData({...formData, minecraftVersion: e.target.value})}
+                  placeholder="latest, 1.20.4, 1.19.4, etc."
+                />
+                <small>Usa "latest" per l'ultima versione disponibile, oppure specifica una versione (es: 1.20.4)</small>
+              </div>
+            </>
+          )}
 
           <div className="form-group">
             <label>Versione Java *</label>
@@ -351,7 +509,7 @@ function CreateServerModal({ onClose, onCreate }) {
 
           <div className="modal-actions">
             <button type="submit" className="btn btn-primary">
-              Crea Server
+              {isModpackMode ? 'Crea Server da Modpack' : 'Crea Server'}
             </button>
             <button type="button" className="btn btn-secondary" onClick={onClose}>
               Annulla

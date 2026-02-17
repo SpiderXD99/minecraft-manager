@@ -220,6 +220,36 @@ async function generateDockerCompose(serverId, server) {
     ...(traefikLabels.length > 0 ? ['      # Traefik routing per servizi aggiuntivi', ...traefikLabels] : [])
   ].join('\n');
 
+  // Build environment variables
+  const envVars = [
+    'EULA=TRUE',
+    `VERSION=${server.minecraftVersion || 'LATEST'}`,
+    'SERVER_PORT=25565',
+    `MEMORY=${server.maxRam}M`,
+    `INIT_MEMORY=${server.minRam}M`,
+    `MAX_MEMORY=${server.maxRam}M`,
+    'ONLINE_MODE=TRUE',
+    'CREATE_CONSOLE_IN_PIPE=true'
+  ];
+
+  // Modpack or normal server type
+  if (server.modpack) {
+    if (server.modpack.source === 'modrinth') {
+      envVars.push('TYPE=MODRINTH');
+      envVars.push(`MODRINTH_MODPACK=${server.modpack.slug}`);
+    } else if (server.modpack.source === 'curseforge') {
+      envVars.push('TYPE=AUTO_CURSEFORGE');
+      envVars.push(`CF_SLUG=${server.modpack.slug}`);
+      if (process.env.CURSEFORGE_API_KEY) {
+        envVars.push(`CF_API_KEY=${process.env.CURSEFORGE_API_KEY}`);
+      }
+    }
+  } else {
+    envVars.push(`TYPE=${serverType}`);
+  }
+
+  const envLines = envVars.map(v => `      - ${v}`).join('\n');
+
   const dockerComposeContent = `services:
   minecraft-server:
     image: ${dockerImage}
@@ -229,15 +259,7 @@ ${exposeLines}
 ${udpPortsLines}    volumes:
       - ${hostPath}:/data
     environment:
-      - EULA=TRUE
-      - TYPE=${serverType}
-      - VERSION=${server.minecraftVersion || 'LATEST'}
-      - SERVER_PORT=25565
-      - MEMORY=${server.maxRam}M
-      - INIT_MEMORY=${server.minRam}M
-      - MAX_MEMORY=${server.maxRam}M
-      - ONLINE_MODE=TRUE
-      - CREATE_CONSOLE_IN_PIPE=true
+${envLines}
     networks:
       - minecraft-manager_default
     restart: unless-stopped
