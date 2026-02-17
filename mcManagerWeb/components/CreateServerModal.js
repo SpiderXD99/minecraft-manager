@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useConfig } from '../lib/config-context';
 import { normalizeSubdomain } from '../lib/utils';
+import { RAM_OPTIONS } from '../lib/constants';
 import { Plus, Trash2, Globe, Wifi } from 'lucide-react';
 
 function CreateServerModal({ onClose, onCreate }) {
@@ -211,24 +212,26 @@ function CreateServerModal({ onClose, onCreate }) {
 
           <div className="form-row">
             <div className="form-group">
-              <label>RAM Min (MB)</label>
-              <input
-                type="number"
+              <label>RAM Min</label>
+              <select
                 value={formData.minRam}
                 onChange={e => setFormData({...formData, minRam: parseInt(e.target.value)})}
-                min="512"
-                step="256"
-              />
+              >
+                {RAM_OPTIONS.map(mb => (
+                  <option key={mb} value={mb}>{mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`}</option>
+                ))}
+              </select>
             </div>
             <div className="form-group">
-              <label>RAM Max (MB)</label>
-              <input
-                type="number"
+              <label>RAM Max</label>
+              <select
                 value={formData.maxRam}
                 onChange={e => setFormData({...formData, maxRam: parseInt(e.target.value)})}
-                min="1024"
-                step="256"
-              />
+              >
+                {RAM_OPTIONS.map(mb => (
+                  <option key={mb} value={mb}>{mb >= 1024 ? `${mb / 1024} GB` : `${mb} MB`}</option>
+                ))}
+              </select>
             </div>
           </div>
 
