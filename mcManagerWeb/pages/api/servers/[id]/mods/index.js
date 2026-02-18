@@ -112,22 +112,46 @@ export default async function handler(req, res) {
         return res.status(400).json({ error: 'Missing required fields: source, projectId, versionId' });
       }
 
-      // Get download info
-      const downloadInfo = await getDownloadUrl(source, projectId, versionId);
+      // Get versions filtered by server loader and game version
+      const loaders = LOADER_MAP[serverType] || [];
+      const versions = await getModVersions(source, projectId, {
+        loaders,
+        gameVersion: serverConfig.minecraftVersion
+      });
+
+      // Resolve the actual version to install
+      let resolvedVersionId = versionId;
+      let version = null;
+
+      if (versionId === 'latest') {
+        // Find the first version compatible with the server's loader
+        if (loaders.length > 0 && versions.length > 0) {
+          // For CurseForge, filter by loader since the API doesn't do it
+          const compatible = versions.find(v =>
+            v.loaders?.length === 0 || v.loaders?.some(l => loaders.includes(l.toLowerCase()))
+          );
+          version = compatible || versions[0];
+        } else {
+          version = versions[0];
+        }
+
+        if (!version) {
+          return res.status(400).json({ error: `Nessuna versione compatibile trovata per ${serverType} ${serverConfig.minecraftVersion}` });
+        }
+        resolvedVersionId = version.id;
+      } else {
+        version = versions.find(v => v.id === versionId);
+      }
+
+      // Get download info using the resolved version ID
+      const downloadInfo = await getDownloadUrl(source, projectId, resolvedVersionId);
 
       if (!downloadInfo.url) {
         return res.status(400).json({ error: 'Could not get download URL for this mod' });
       }
 
-      // Get version info for filename
-      const versions = await getModVersions(source, projectId, {
-        loaders: LOADER_MAP[serverType] || [],
-        gameVersion: serverConfig.minecraftVersion
-      });
-
-      const version = versions.find(v => v.id === versionId);
-      const fileName = version?.fileName || downloadInfo.fileName || `${slug || projectId}-${versionId}.jar`;
-      const versionNumber = version?.versionNumber || versionId;
+      const fileName = version?.fileName || downloadInfo.fileName || `${slug || projectId}-${resolvedVersionId}.jar`;
+      const versionNumber = version?.versionNumber || resolvedVersionId;
 
       // Download the file
       const modFolder = await getModFolder(serverId, serverType);
@@ -158,7 +182,7 @@ export default async function handler(req, res) {
         slug,
         source,
         installedVersion: versionNumber,
-        versionId,
+        versionId: resolvedVersionId,
         fileName,
         installedAt: new Date().toISOString()
       });

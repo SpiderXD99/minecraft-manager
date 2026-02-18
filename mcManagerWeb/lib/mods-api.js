@@ -266,14 +266,32 @@ async function getModrinthVersions(projectId, options = {}) {
   }));
 }
 
+// CurseForge modLoaderType enum
+const CF_LOADER_TYPE = {
+  'forge': 1,
+  'cauldron': 2,
+  'liteloader': 3,
+  'fabric': 4,
+  'quilt': 5,
+  'neoforge': 6
+};
+
 // Get versions for a CurseForge project
 async function getCurseforgeVersions(projectId, options = {}) {
-  const { gameVersion = '' } = options;
+  const { gameVersion = '', loaders = [] } = options;
 
   const params = new URLSearchParams();
 
   if (gameVersion && gameVersion !== 'latest') {
     params.append('gameVersion', gameVersion);
+  }
+
+  // CurseForge supports filtering by modLoaderType
+  if (loaders.length > 0) {
+    const loaderTypeId = CF_LOADER_TYPE[loaders[0].toLowerCase()];
+    if (loaderTypeId) {
+      params.append('modLoaderType', loaderTypeId);
+    }
   }
 
   const data = await curseforgeFetch(`/mods/${projectId}/files?${params}`);
