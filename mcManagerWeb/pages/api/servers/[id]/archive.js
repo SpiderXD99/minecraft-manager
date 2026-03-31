@@ -140,6 +140,9 @@ export default async function handler(req, res) {
 
           await execAsync(cmd, { maxBuffer: 50 * 1024 * 1024 }); // 50MB buffer for output
 
+          // Fix permessi: il container Docker (UID 1000) deve poter leggere/scrivere i file estratti
+          await execAsync(`chmod -R 777 "${destPath}"`);
+
           jobs.set(jobId, { status: 'completed', type: 'extract', filename });
           emitJobUpdate(id, jobId, 'completed', { message: 'Estrazione completata', filename });
 

@@ -13,6 +13,13 @@ import {
 
 export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
   const { mcDomain, baseDomain } = useConfig();
+  const [mcVersions, setMcVersions] = useState([]);
+  useEffect(() => {
+    fetch('/api/minecraft/versions')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setMcVersions(data.versions); })
+      .catch(() => {});
+  }, []);
   const { copyToClipboard, isCopied } = useCopyToClipboard();
   const [activeTab, setActiveTab] = useState('overview');
   const [logs, setLogs] = useState([]);
@@ -260,6 +267,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
       javaVersion: server.javaVersion || '21',
       maxRam: server.maxRam,
       minRam: server.minRam,
+      javaArgs: server.javaArgs || '',
       additionalServices
     });
     setIsEditing(true);
@@ -341,6 +349,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         javaVersion: editedServer.javaVersion,
         maxRam: editedServer.maxRam,
         minRam: editedServer.minRam,
+        javaArgs: editedServer.javaArgs || '',
         additionalPorts
       };
 
@@ -540,13 +549,20 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
                 <div className="detail-item">
                   <label>Minecraft Version</label>
                   {isEditing ? (
-                    <input
-                      type="text"
+                    <select
                       className="value-input"
                       value={editedServer.minecraftVersion}
                       onChange={(e) => setEditedServer({...editedServer, minecraftVersion: e.target.value})}
-                      placeholder="latest, 1.20.4, etc."
-                    />
+                    >
+                      <option value="latest">latest (ultima stabile)</option>
+                      {mcVersions.map(v => (
+                        <option key={v} value={v}>{v}</option>
+                      ))}
+                      {/* Se la versione attuale non è nella lista, aggiungila */}
+                      {editedServer.minecraftVersion && editedServer.minecraftVersion !== 'latest' && !mcVersions.includes(editedServer.minecraftVersion) && (
+                        <option value={editedServer.minecraftVersion}>{editedServer.minecraftVersion}</option>
+                      )}
+                    </select>
                   ) : (
                     <div className="value">{server.minecraftVersion || 'latest'}</div>
                   )}
@@ -783,6 +799,37 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Java Arguments section */}
+            <div className="detail-section">
+              <div className="detail-section-header">
+                <h3>Java Arguments</h3>
+              </div>
+              <div className="detail-grid">
+                <div className="detail-item detail-item-full-width">
+                  <label>JVM Options</label>
+                  {isEditing ? (
+                    <textarea
+                      className="value-input"
+                      style={{ resize: 'vertical', minHeight: '70px', fontFamily: 'monospace', fontSize: '13px' }}
+                      value={editedServer.javaArgs || ''}
+                      onChange={(e) => setEditedServer({...editedServer, javaArgs: e.target.value})}
+                      placeholder="-XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ParallelRefProcEnabled"
+                    />
+                  ) : (
+                    <div className="value" style={{ fontFamily: 'monospace', fontSize: '13px', wordBreak: 'break-all' }}>
+                      {server.javaArgs && server.javaArgs.trim()
+                        ? server.javaArgs
+                        : <em style={{ opacity: 0.5 }}>Nessun argomento personalizzato</em>
+                      }
+                    </div>
+                  )}
+                  {!isEditing && (
+                    <small style={{ opacity: 0.6 }}>Clicca Modifica nella sezione sopra per modificare gli argomenti JVM.</small>
+                  )}
+                </div>
               </div>
             </div>
 

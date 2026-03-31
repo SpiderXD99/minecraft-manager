@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { useConfig } from '../lib/config-context';
 import { normalizeSubdomain } from '../lib/utils';
 import { RAM_OPTIONS } from '../lib/constants';
@@ -6,6 +6,7 @@ import { Plus, Trash2, Globe, Wifi, Search, Package, X } from 'lucide-react';
 
 function CreateServerModal({ onClose, onCreate }) {
   const { mcDomain, baseDomain } = useConfig();
+  const mouseDownOnOverlay = useRef(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -17,6 +18,15 @@ function CreateServerModal({ onClose, onCreate }) {
     minRam: 1024,
     additionalServices: []
   });
+
+  // Versioni Minecraft disponibili
+  const [mcVersions, setMcVersions] = useState([]);
+  useEffect(() => {
+    fetch('/api/minecraft/versions')
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setMcVersions(data.versions); })
+      .catch(() => {});
+  }, []);
 
   // Modpack state
   const [isModpackMode, setIsModpackMode] = useState(false);
@@ -191,7 +201,11 @@ function CreateServerModal({ onClose, onCreate }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onMouseDown={(e) => { mouseDownOnOverlay.current = e.target === e.currentTarget; }}
+      onClick={(e) => { if (mouseDownOnOverlay.current && e.target === e.currentTarget) onClose(); }}
+    >
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <h2>Crea Nuovo Server</h2>
@@ -342,13 +356,15 @@ function CreateServerModal({ onClose, onCreate }) {
 
               <div className="form-group">
                 <label>Versione Minecraft</label>
-                <input
-                  type="text"
+                <select
                   value={formData.minecraftVersion}
                   onChange={e => setFormData({...formData, minecraftVersion: e.target.value})}
-                  placeholder="latest, 1.20.4, 1.19.4, etc."
-                />
-                <small>Usa "latest" per l'ultima versione disponibile, oppure specifica una versione (es: 1.20.4)</small>
+                >
+                  <option value="latest">latest (ultima stabile)</option>
+                  {mcVersions.map(v => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
               </div>
             </>
           )}

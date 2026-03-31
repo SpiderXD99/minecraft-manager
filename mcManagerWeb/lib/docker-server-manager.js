@@ -236,6 +236,11 @@ async function generateDockerCompose(serverId, server) {
     'AUTOPAUSE_PERIOD=10'
   ];
 
+  // Java args personalizzati (JVM_OPTS per itzg/minecraft-server)
+  if (server.javaArgs && server.javaArgs.trim()) {
+    envVars.push(`JVM_OPTS=${server.javaArgs.trim()}`);
+  }
+
   // Modpack or normal server type
   let needsCfSecret = false;
   if (server.modpack) {

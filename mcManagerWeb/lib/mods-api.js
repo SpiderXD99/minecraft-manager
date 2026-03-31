@@ -120,8 +120,11 @@ async function searchModrinth(query, options = {}) {
 
   const data = await modrinthFetch(`/search?${params}`);
 
+  // Filtra mod solo client-side (server_side === 'unsupported')
+  const filteredHits = data.hits.filter(hit => hit.server_side !== 'unsupported');
+
   return {
-    mods: data.hits.map(hit => ({
+    mods: filteredHits.map(hit => ({
       id: hit.project_id,
       slug: hit.slug,
       name: hit.title,
@@ -178,8 +181,17 @@ async function searchCurseforge(query, options = {}) {
 
   const data = await curseforgeFetch(`/mods/search?${params}`);
 
+  // Filtra mod solo client-side: esclude mod con categorie che indicano solo client
+  const CLIENT_ONLY_CATEGORIES = ['client', 'client-side'];
+  const filteredMods = data.data.filter(mod => {
+    const categoryNames = (mod.categories || []).map(c => c.name.toLowerCase());
+    const hasClientOnly = CLIENT_ONLY_CATEGORIES.some(c => categoryNames.includes(c));
+    const hasServer = categoryNames.some(c => c.includes('server'));
+    return !hasClientOnly || hasServer;
+  });
+
   return {
-    mods: data.data.map(mod => ({
+    mods: filteredMods.map(mod => ({
       id: mod.id.toString(),
       slug: mod.slug,
       name: mod.name,

@@ -24,7 +24,7 @@ export default async function handler(req, res) {
       await saveConfig(config);
 
       // Rigenera il docker-compose se sono cambiate proprietà che lo influenzano
-      const needsRegenerate = ['subdomain', 'name', 'serverType', 'javaVersion', 'minecraftVersion', 'maxRam', 'minRam', 'additionalPorts']
+      const needsRegenerate = ['subdomain', 'name', 'serverType', 'javaVersion', 'minecraftVersion', 'maxRam', 'minRam', 'additionalPorts', 'javaArgs']
         .some(key => updates[key] !== undefined);
       if (needsRegenerate) {
         await generateDockerCompose(id, config[index]);
