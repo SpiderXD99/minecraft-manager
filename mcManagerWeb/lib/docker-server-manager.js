@@ -230,7 +230,11 @@ async function generateDockerCompose(serverId, server) {
     `INIT_MEMORY=${server.minRam}M`,
     `MAX_MEMORY=${server.maxRam}M`,
     'ONLINE_MODE=TRUE',
-    'CREATE_CONSOLE_IN_PIPE=true'
+    'CREATE_CONSOLE_IN_PIPE=true',
+    'ENABLE_AUTOPAUSE=TRUE',
+    'AUTOPAUSE_TIMEOUT_EST=300',
+    'AUTOPAUSE_TIMEOUT_INIT=600',
+    'AUTOPAUSE_PERIOD=10'
   ];
 
   // Modpack or normal server type
@@ -362,7 +366,7 @@ function startLogStreaming(serverId, serverDir, onLog) {
   stopLogStreaming(serverId);
 
   // Usa spawn per eseguire docker compose logs -f
-  const logProcess = spawn('docker', ['compose', 'logs', '-f', '--tail', '50'], {
+  const logProcess = spawn('docker', ['compose', 'logs', '-f', '--tail', '50', '--no-log-prefix'], {
     cwd: serverDir,
   });
 
@@ -551,7 +555,7 @@ async function getServerLogs(serverId, lines = 500) {
     const serverDir = path.join(SERVERS_DIR, serverId);
 
     // Esegui docker compose logs
-    const { stdout } = await execAsync(`docker compose logs --tail ${lines}`, {
+    const { stdout } = await execAsync(`docker compose logs --tail ${lines} --no-log-prefix`, {
       cwd: serverDir,
     });
 

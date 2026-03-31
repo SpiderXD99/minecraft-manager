@@ -1,13 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import FileManager from './FileManager';
 import ModsManager from './ModsManager';
+import PlayerManager from './PlayerManager';
 import { useConfig } from '../lib/config-context';
 import { getServerSubdomain, normalizeSubdomain } from '../lib/utils';
 import { useCopyToClipboard } from '../lib/hooks/useCopyToClipboard';
 import { COMMON_COMMANDS, LOG_POLL_INTERVAL, SERVICE_SUBDOMAIN_PREFIXES, SERVICE_PROTOCOLS, SERVER_TYPES, DOCKER_IMAGES, RAM_OPTIONS } from '../lib/constants';
 import {
   Play, Square, Zap, Trash2, Edit3, Check, X, Copy, ExternalLink, Plus, Globe, Wifi,
-  ArrowDownToLine, Pause, RotateCw
+  ArrowDownToLine, Pause, RotateCw, Users
 } from 'lucide-react';
 
 export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
@@ -438,6 +439,12 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         >
           Mods
         </button>
+        <button
+          className={`tab ${activeTab === 'players' ? 'active' : ''}`}
+          onClick={() => setActiveTab('players')}
+        >
+          <Users size={14} /> Players
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -864,6 +871,10 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
             modpack={server.modpack || null}
             onUpdate={onUpdate}
           />
+        )}
+
+        {activeTab === 'players' && (
+          <PlayerManager serverId={server.id} />
         )}
       </div>
     </div>
