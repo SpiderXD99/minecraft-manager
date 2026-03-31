@@ -229,7 +229,6 @@ async function generateDockerCompose(serverId, server) {
     `MEMORY=${server.maxRam}M`,
     `INIT_MEMORY=${server.minRam}M`,
     `MAX_MEMORY=${server.maxRam}M`,
-    'ONLINE_MODE=TRUE',
     'CREATE_CONSOLE_IN_PIPE=true',
     'ENABLE_AUTOPAUSE=TRUE',
     'AUTOPAUSE_TIMEOUT_EST=300',
