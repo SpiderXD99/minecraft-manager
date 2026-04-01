@@ -21,6 +21,5 @@ export default function handler(req, res) {
   res.status(200).json({
     baseDomain,
     mcDomain: `${MC_SUBDOMAIN_PREFIX}.${baseDomain}`,
-    enablePlayersTab: process.env.ENABLE_PLAYERS_TAB !== 'false',
   });
 }

@@ -12,7 +12,7 @@ import {
 } from 'lucide-react';
 
 export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
-  const { mcDomain, baseDomain, enablePlayersTab } = useConfig();
+  const { mcDomain, baseDomain } = useConfig();
   const [mcVersions, setMcVersions] = useState([]);
   useEffect(() => {
     fetch('/api/minecraft/versions')
@@ -268,6 +268,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
       maxRam: server.maxRam,
       minRam: server.minRam,
       javaArgs: server.javaArgs || '',
+      showPlayersTab: server.showPlayersTab !== false,
       autopause: {
         enabled: server.autopause?.enabled !== false,
         timeoutEst: server.autopause?.timeoutEst ?? 300,
@@ -356,6 +357,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         maxRam: editedServer.maxRam,
         minRam: editedServer.minRam,
         javaArgs: editedServer.javaArgs || '',
+        showPlayersTab: editedServer.showPlayersTab !== false,
         autopause: editedServer.autopause,
         additionalPorts
       };
@@ -455,7 +457,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         >
           Mods
         </button>
-        {enablePlayersTab && (
+        {server.showPlayersTab !== false && (
           <button
             className={`tab ${activeTab === 'players' ? 'active' : ''}`}
             onClick={() => setActiveTab('players')}
@@ -627,6 +629,93 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
                 <div className="detail-item">
                   <label>Server ID</label>
                   <div className="value server-id-value">{server.id}</div>
+                </div>
+                <div className="detail-item">
+                  <label>Tab Players</label>
+                  {isEditing ? (
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                      <input
+                        type="checkbox"
+                        checked={editedServer.showPlayersTab !== false}
+                        onChange={(e) => setEditedServer({...editedServer, showPlayersTab: e.target.checked})}
+                      />
+                      {editedServer.showPlayersTab !== false ? 'Visibile' : 'Nascosto'}
+                    </label>
+                  ) : (
+                    <div className="value">
+                      {server.showPlayersTab !== false
+                        ? <span style={{ color: 'var(--color-success, #4caf50)' }}>Visibile</span>
+                        : <span style={{ opacity: 0.6 }}>Nascosto</span>}
+                    </div>
+                  )}
+                </div>
+
+                <div className="detail-item detail-item-full-width">
+                  <label>AutoPause</label>
+                  {isEditing ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                        <input
+                          type="checkbox"
+                          checked={editedServer.autopause?.enabled !== false}
+                          onChange={(e) => setEditedServer({
+                            ...editedServer,
+                            autopause: { ...editedServer.autopause, enabled: e.target.checked }
+                          })}
+                        />
+                        Abilitato
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', opacity: editedServer.autopause?.enabled !== false ? 1 : 0.4 }}>
+                        <span style={{ fontSize: '12px' }}>Inattività</span>
+                        <input
+                          type="number" min="60"
+                          className="value-input"
+                          style={{ width: '70px' }}
+                          disabled={editedServer.autopause?.enabled === false}
+                          value={editedServer.autopause?.timeoutEst ?? 300}
+                          onChange={(e) => setEditedServer({ ...editedServer, autopause: { ...editedServer.autopause, timeoutEst: parseInt(e.target.value) } })}
+                        />
+                        <span style={{ fontSize: '12px' }}>s</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', opacity: editedServer.autopause?.enabled !== false ? 1 : 0.4 }}>
+                        <span style={{ fontSize: '12px' }}>Avvio</span>
+                        <input
+                          type="number" min="60"
+                          className="value-input"
+                          style={{ width: '70px' }}
+                          disabled={editedServer.autopause?.enabled === false}
+                          value={editedServer.autopause?.timeoutInit ?? 600}
+                          onChange={(e) => setEditedServer({ ...editedServer, autopause: { ...editedServer.autopause, timeoutInit: parseInt(e.target.value) } })}
+                        />
+                        <span style={{ fontSize: '12px' }}>s</span>
+                      </label>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', opacity: editedServer.autopause?.enabled !== false ? 1 : 0.4 }}>
+                        <span style={{ fontSize: '12px' }}>Periodo</span>
+                        <input
+                          type="number" min="1"
+                          className="value-input"
+                          style={{ width: '60px' }}
+                          disabled={editedServer.autopause?.enabled === false}
+                          value={editedServer.autopause?.period ?? 10}
+                          onChange={(e) => setEditedServer({ ...editedServer, autopause: { ...editedServer.autopause, period: parseInt(e.target.value) } })}
+                        />
+                        <span style={{ fontSize: '12px' }}>s</span>
+                      </label>
+                    </div>
+                  ) : (
+                    <div className="value">
+                      {server.autopause?.enabled !== false ? (
+                        <span>
+                          <span style={{ color: 'var(--color-success, #4caf50)' }}>Attivo</span>
+                          <span style={{ opacity: 0.6, fontSize: '12px', marginLeft: '8px' }}>
+                            inattività {server.autopause?.timeoutEst ?? 300}s · avvio {server.autopause?.timeoutInit ?? 600}s · periodo {server.autopause?.period ?? 10}s
+                          </span>
+                        </span>
+                      ) : (
+                        <span style={{ opacity: 0.6 }}>Disabilitato</span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Servizi Aggiuntivi - Edit Mode */}
@@ -842,98 +931,6 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
               </div>
             </div>
 
-            {/* AutoPause section */}
-            <div className="detail-section">
-              <div className="detail-section-header">
-                <h3>AutoPause</h3>
-              </div>
-              <div className="detail-grid">
-                <div className="detail-item detail-item-full-width">
-                  <label>Abilita AutoPause</label>
-                  {isEditing ? (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={editedServer.autopause?.enabled !== false}
-                        onChange={(e) => setEditedServer({
-                          ...editedServer,
-                          autopause: { ...editedServer.autopause, enabled: e.target.checked }
-                        })}
-                      />
-                      {editedServer.autopause?.enabled !== false ? 'Attivo — il server si mette in pausa quando non ci sono giocatori' : 'Disabilitato — il server rimane sempre attivo'}
-                    </label>
-                  ) : (
-                    <div className="value">
-                      {server.autopause?.enabled !== false
-                        ? <span style={{ color: 'var(--color-success, #4caf50)' }}>Attivo</span>
-                        : <span style={{ opacity: 0.6 }}>Disabilitato</span>
-                      }
-                    </div>
-                  )}
-                </div>
-
-                {(isEditing ? editedServer.autopause?.enabled !== false : server.autopause?.enabled !== false) && (
-                  <>
-                    <div className="detail-item">
-                      <label>Timeout giocatori assenti (s)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          className="value-input"
-                          min="60"
-                          value={editedServer.autopause?.timeoutEst ?? 300}
-                          onChange={(e) => setEditedServer({
-                            ...editedServer,
-                            autopause: { ...editedServer.autopause, timeoutEst: parseInt(e.target.value) }
-                          })}
-                        />
-                      ) : (
-                        <div className="value">{server.autopause?.timeoutEst ?? 300} s</div>
-                      )}
-                      {isEditing && <small style={{ opacity: 0.6 }}>Secondi di inattività prima della pausa (default 300)</small>}
-                    </div>
-
-                    <div className="detail-item">
-                      <label>Timeout avvio (s)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          className="value-input"
-                          min="60"
-                          value={editedServer.autopause?.timeoutInit ?? 600}
-                          onChange={(e) => setEditedServer({
-                            ...editedServer,
-                            autopause: { ...editedServer.autopause, timeoutInit: parseInt(e.target.value) }
-                          })}
-                        />
-                      ) : (
-                        <div className="value">{server.autopause?.timeoutInit ?? 600} s</div>
-                      )}
-                      {isEditing && <small style={{ opacity: 0.6 }}>Secondi di attesa durante l'avvio prima di mettere in pausa (default 600)</small>}
-                    </div>
-
-                    <div className="detail-item">
-                      <label>Periodo di controllo (s)</label>
-                      {isEditing ? (
-                        <input
-                          type="number"
-                          className="value-input"
-                          min="1"
-                          value={editedServer.autopause?.period ?? 10}
-                          onChange={(e) => setEditedServer({
-                            ...editedServer,
-                            autopause: { ...editedServer.autopause, period: parseInt(e.target.value) }
-                          })}
-                        />
-                      ) : (
-                        <div className="value">{server.autopause?.period ?? 10} s</div>
-                      )}
-                      {isEditing && <small style={{ opacity: 0.6 }}>Frequenza di verifica dell'inattività (default 10)</small>}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
 
           </div>
         )}
@@ -1022,7 +1019,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
           />
         )}
 
-        {activeTab === 'players' && enablePlayersTab && (
+        {activeTab === 'players' && server.showPlayersTab !== false && (
           <PlayerManager serverId={server.id} />
         )}
       </div>
