@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 const ConfigContext = createContext({
   baseDomain: 'example.com',
   mcDomain: 'mc.example.com',
+  enablePlayersTab: true,
   loading: true,
 });
 
@@ -10,6 +11,7 @@ export function ConfigProvider({ children }) {
   const [config, setConfig] = useState({
     baseDomain: 'example.com',
     mcDomain: 'mc.example.com',
+    enablePlayersTab: true,
     loading: true,
   });
 
@@ -20,6 +22,7 @@ export function ConfigProvider({ children }) {
         setConfig({
           baseDomain: data.baseDomain,
           mcDomain: data.mcDomain,
+          enablePlayersTab: data.enablePlayersTab !== false,
           loading: false,
         });
       })

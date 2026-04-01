@@ -84,6 +84,7 @@ services:
       - DOCKER_NETWORK=minecraft-manager_default
       - PROJECT_ROOT=/app
       - HOST_PROJECT_ROOT=${PWD}
+      - ENABLE_PLAYERS_TAB=${ENABLE_PLAYERS_TAB:-false}
     restart: unless-stopped
     networks:
       - default

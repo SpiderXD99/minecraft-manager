@@ -230,10 +230,10 @@ async function generateDockerCompose(serverId, server) {
     `INIT_MEMORY=${server.minRam}M`,
     `MAX_MEMORY=${server.maxRam}M`,
     'CREATE_CONSOLE_IN_PIPE=true',
-    'ENABLE_AUTOPAUSE=TRUE',
-    'AUTOPAUSE_TIMEOUT_EST=300',
-    'AUTOPAUSE_TIMEOUT_INIT=600',
-    'AUTOPAUSE_PERIOD=10'
+    `ENABLE_AUTOPAUSE=${server.autopause?.enabled !== false ? 'TRUE' : 'FALSE'}`,
+    `AUTOPAUSE_TIMEOUT_EST=${server.autopause?.timeoutEst ?? 300}`,
+    `AUTOPAUSE_TIMEOUT_INIT=${server.autopause?.timeoutInit ?? 600}`,
+    `AUTOPAUSE_PERIOD=${server.autopause?.period ?? 10}`
   ];
 
   // Java args personalizzati (JVM_OPTS per itzg/minecraft-server)
