@@ -246,10 +246,22 @@ async function generateDockerCompose(serverId, server) {
   if (server.modpack) {
     if (server.modpack.source === 'modrinth') {
       envVars.push('TYPE=MODRINTH');
-      envVars.push(`MODRINTH_MODPACK=${server.modpack.slug}`);
+      // Se abbiamo il direct download URL usiamo quello (pinning esatto, itzg non fa resolving)
+      // altrimenti fallback al slug (scarica l'ultima versione)
+      if (server.modpack.versionDownloadUrl) {
+        envVars.push(`MODRINTH_MODPACK=${server.modpack.versionDownloadUrl}`);
+      } else {
+        envVars.push(`MODRINTH_MODPACK=${server.modpack.slug}`);
+        if (server.modpack.versionId) {
+          envVars.push(`MODRINTH_MODPACK_VERSION=${server.modpack.versionId}`);
+        }
+      }
     } else if (server.modpack.source === 'curseforge') {
       envVars.push('TYPE=AUTO_CURSEFORGE');
       envVars.push(`CF_SLUG=${server.modpack.slug}`);
+      if (server.modpack.versionId) {
+        envVars.push(`CF_FILE_ID=${server.modpack.versionId}`);
+      }
       // Use CF_API_KEY_FILE to read from Docker secret (avoids $ interpolation issues)
       envVars.push('CF_API_KEY_FILE=/run/secrets/curseforge_api_key');
       needsCfSecret = true;

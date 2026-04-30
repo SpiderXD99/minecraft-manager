@@ -35,6 +35,9 @@ function CreateServerModal({ onClose, onCreate }) {
   const [modpackResults, setModpackResults] = useState([]);
   const [modpackLoading, setModpackLoading] = useState(false);
   const [selectedModpack, setSelectedModpack] = useState(null);
+  const [modpackVersions, setModpackVersions] = useState([]);
+  const [modpackVersionsLoading, setModpackVersionsLoading] = useState(false);
+  const [selectedModpackVersion, setSelectedModpackVersion] = useState(null); // intero oggetto versione
 
   // Template servizi comuni (per quick add)
   const serviceTemplates = [
@@ -108,10 +111,26 @@ function CreateServerModal({ onClose, onCreate }) {
     }
   };
 
-  const selectModpack = (modpack) => {
+  const selectModpack = async (modpack) => {
     setSelectedModpack(modpack);
+    setSelectedModpackVersion(null);
+    setModpackVersions([]);
     setModpackResults([]);
     setModpackSearch('');
+
+    setModpackVersionsLoading(true);
+    try {
+      const params = new URLSearchParams({ source: modpack.source, projectId: modpack.id });
+      const res = await fetch(`/api/mods/versions?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModpackVersions(data.versions || []);
+      }
+    } catch (error) {
+      console.error('Modpack versions error:', error);
+    } finally {
+      setModpackVersionsLoading(false);
+    }
   };
 
   // Aggiungi servizio vuoto
@@ -193,7 +212,12 @@ function CreateServerModal({ onClose, onCreate }) {
           source: selectedModpack.source,
           slug: selectedModpack.slug,
           name: selectedModpack.name,
-          projectId: selectedModpack.id
+          projectId: selectedModpack.id,
+          ...(selectedModpackVersion ? {
+            versionId: selectedModpackVersion.id,
+            versionNumber: selectedModpackVersion.versionNumber || selectedModpackVersion.name,
+            versionDownloadUrl: selectedModpackVersion.downloadUrl || null
+          } : {})
         }
       } : {})
     };
@@ -276,10 +300,32 @@ function CreateServerModal({ onClose, onCreate }) {
                   <button
                     type="button"
                     className="modpack-remove-btn"
-                    onClick={() => setSelectedModpack(null)}
+                    onClick={() => { setSelectedModpack(null); setSelectedModpackVersion(null); setModpackVersions([]); }}
                   >
                     <X size={16} />
                   </button>
+                  <div style={{ width: '100%', marginTop: '8px' }}>
+                    {modpackVersionsLoading ? (
+                      <div style={{ fontSize: '13px', opacity: 0.6 }}>Caricamento versioni...</div>
+                    ) : (
+                      <select
+                        value={selectedModpackVersion?.id || ''}
+                        onChange={e => {
+                          const v = modpackVersions.find(v => v.id === e.target.value) || null;
+                          setSelectedModpackVersion(v);
+                        }}
+                        style={{ width: '100%' }}
+                      >
+                        <option value="">Ultima versione disponibile</option>
+                        {modpackVersions.map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.versionNumber || v.name}
+                            {v.gameVersions?.length ? ` — MC ${v.gameVersions[0]}` : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
               ) : (
                 <>
