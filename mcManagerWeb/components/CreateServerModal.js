@@ -53,6 +53,7 @@ function CreateServerModal({ onClose, onCreate }) {
     { id: 'spigot', name: 'Spigot', desc: 'Supporto plugin Bukkit' },
     { id: 'fabric', name: 'Fabric', desc: 'Moderno, leggero, moddabile' },
     { id: 'forge', name: 'Forge', desc: 'Supporto mod più diffuso' },
+    { id: 'neoforge', name: 'NeoForge', desc: 'Fork moderno di Forge' },
     { id: 'purpur', name: 'Purpur', desc: 'Fork di Paper con più features' },
     { id: 'velocity', name: 'Velocity', desc: 'Proxy moderno' },
     { id: 'waterfall', name: 'Waterfall', desc: 'Fork di BungeeCord' },

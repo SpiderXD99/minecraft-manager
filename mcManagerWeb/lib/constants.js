@@ -107,6 +107,7 @@ export const SERVER_TYPES = {
   spigot: 'SPIGOT',
   fabric: 'FABRIC',
   forge: 'FORGE',
+  neoforge: 'NEOFORGE',
   purpur: 'PURPUR',
   velocity: 'VELOCITY',
   waterfall: 'WATERFALL',

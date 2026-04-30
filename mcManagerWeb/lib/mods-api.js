@@ -23,6 +23,7 @@ function getCurseforgeApiKey() {
 const LOADER_MAP = {
   'fabric': ['fabric'],
   'forge': ['forge', 'neoforge'],
+  'neoforge': ['neoforge'],
   'paper': ['paper', 'spigot', 'bukkit'],
   'spigot': ['spigot', 'bukkit'],
   'purpur': ['paper', 'spigot', 'bukkit'],
