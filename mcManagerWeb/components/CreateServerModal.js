@@ -68,6 +68,7 @@ function CreateServerModal({ onClose, onCreate }) {
     { id: '11', name: 'Java 11', desc: 'Per Minecraft 1.13-1.16' },
     { id: '17', name: 'Java 17', desc: 'Per Minecraft 1.17-1.19' },
     { id: '21', name: 'Java 21', desc: 'Per Minecraft 1.20+' },
+    { id: '25', name: 'Java 25', desc: 'Per Minecraft 1.21+ (ultima LTS)' },
   ];
 
   // Auto-genera subdomain quando cambia il nome
@@ -380,6 +381,11 @@ function CreateServerModal({ onClose, onCreate }) {
                     </div>
                   )}
                 </>
+              )}
+              {(modpackSource === 'curseforge' || (modpackSource === 'both' && selectedModpack?.source === 'curseforge')) && (
+                <div style={{ marginTop: '8px', padding: '8px 10px', background: 'rgba(255,180,0,0.1)', border: '1px solid rgba(255,180,0,0.4)', borderRadius: '6px', fontSize: '12px', lineHeight: '1.5' }}>
+                  ⚠️ <strong>CurseForge:</strong> alcuni modpack disabilitano la distribuzione automatica via API. Se il server non si avvia con l'errore <em>"not allowed for project distribution"</em>, cerca lo stesso modpack su <strong>Modrinth</strong> — di solito è disponibile e non ha questa restrizione.
+                </div>
               )}
               <small>Il tipo di server e le mod verranno configurati automaticamente dal modpack</small>
             </div>

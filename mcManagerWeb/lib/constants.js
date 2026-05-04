@@ -98,6 +98,7 @@ export const DOCKER_IMAGES = {
   11: 'itzg/minecraft-server:java11',
   17: 'itzg/minecraft-server:java17',
   21: 'itzg/minecraft-server:java21',
+  25: 'itzg/minecraft-server:java25',
 };
 
 /** Minecraft server types */
