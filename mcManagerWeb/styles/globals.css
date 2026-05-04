@@ -579,7 +579,7 @@ body {
   border: 1px solid #1e2747;
   border-radius: 10px;
   padding: 1rem;
-  margin-bottom: 1rem;
+  margin: 16px;
 }
 
 .detail-section h3 {
@@ -3986,4 +3986,139 @@ label svg {
 
 .spin {
   animation: pm-spin 1s linear infinite;
+}
+
+/* System Stats View */
+.sysstat-cards-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  margin: 16px;
+}
+
+.sysstat-card {
+  background: #151b35;
+  border: 1px solid #1e2747;
+  border-radius: 8px;
+  padding: 14px 16px;
+}
+
+.sysstat-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  margin-bottom: 10px;
+}
+
+.sysstat-big {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.sysstat-sub {
+  font-size: 11px;
+  opacity: 0.5;
+  margin-top: 5px;
+}
+
+.sysstat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sysstat-table th {
+  text-align: left;
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  border-bottom: 1px solid var(--color-border, #333);
+}
+
+.sysstat-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+
+.sysstat-table tr:last-child td { border-bottom: none; }
+.sysstat-table tr:hover td { background: rgba(255,255,255,0.03); }
+
+.status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.status-badge.running { background: rgba(76,175,80,0.15); color: #4caf50; }
+.status-badge.stopped { background: rgba(255,255,255,0.06); color: rgba(255,255,255,0.4); }
+
+/* Stats Panel (sidebar popover - kept for legacy) */
+.stats-panel {
+  background: #151b35;
+  border: 1px solid #1e2747;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  overflow: hidden;
+  font-size: 13px;
+}
+
+.stats-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255,255,255,0.05);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.8;
+}
+
+.stats-panel-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  opacity: 0.6;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.stats-panel-close:hover { opacity: 1; }
+
+.stats-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border, #333);
+}
+
+.stats-section-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  margin-bottom: 6px;
+}
+
+.stats-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 3px;
+  font-size: 12px;
 }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
 import Sidebar from '../components/Sidebar';
 import ServerDetail from '../components/ServerDetail';
+import SystemStats from '../components/SystemStats';
 import CreateServerModal from '../components/CreateServerModal';
 
 let socket;
@@ -9,6 +10,7 @@ let socket;
 export default function Home() {
   const [servers, setServers] = useState([]);
   const [selectedServer, setSelectedServer] = useState(null);
+  const [showSystemStats, setShowSystemStats] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [lastReload, setLastReload] = useState(new Date());
   const [mounted, setMounted] = useState(false);
@@ -164,13 +166,17 @@ export default function Home() {
       <Sidebar
         servers={servers}
         selectedServer={selectedServer}
-        onSelectServer={setSelectedServer}
+        onSelectServer={(s) => { setSelectedServer(s); setShowSystemStats(false); }}
         onDeleteServer={deleteServer}
         onRefresh={loadServers}
         onNewServer={() => setShowCreateModal(true)}
+        onShowStats={() => { setShowSystemStats(true); setSelectedServer(null); }}
+        showSystemStats={showSystemStats}
       />
 
-      {selectedServer ? (
+      {showSystemStats ? (
+        <SystemStats />
+      ) : selectedServer ? (
         <ServerDetail
           server={selectedServer}
           onUpdate={loadServers}

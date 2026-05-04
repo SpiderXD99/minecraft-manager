@@ -1,15 +1,9 @@
-import { RefreshCw, Plus, Copy, Check } from 'lucide-react';
+import { RefreshCw, Plus, Copy, Check, Activity } from 'lucide-react';
 import { useConfig } from '../lib/config-context';
 import { getServerSubdomain } from '../lib/utils';
 import { useCopyToClipboard } from '../lib/hooks/useCopyToClipboard';
 
-function Sidebar({
-  servers,
-  selectedServer,
-  onSelectServer,
-  onRefresh,
-  onNewServer
-}) {
+function Sidebar({ servers, selectedServer, onSelectServer, onRefresh, onNewServer, onShowStats, showSystemStats }) {
   const { mcDomain } = useConfig();
   const { copyToClipboard, isCopied } = useCopyToClipboard();
 
@@ -23,6 +17,13 @@ function Sidebar({
         <div className="sidebar-actions">
           <button className="btn btn-icon btn-secondary" onClick={onRefresh} title="Refresh">
             <RefreshCw size={18} />
+          </button>
+          <button
+            className={`btn btn-icon ${showSystemStats ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={onShowStats}
+            title="Stato sistema"
+          >
+            <Activity size={18} />
           </button>
           <button className="btn btn-primary sidebar-btn-flex" onClick={onNewServer}>
             <Plus size={18} /> Nuovo
