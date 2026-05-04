@@ -30,7 +30,6 @@ export default function FileManager({ serverId }) {
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
   const editorRef = useRef(null);
   const lineNumbersRef = useRef(null);
-  const previewRef = useRef(null);
 
   // Sorting state
   const [sortBy, setSortBy] = useState('name'); // 'name', 'size', 'modified'
@@ -462,47 +461,32 @@ export default function FileManager({ serverId }) {
 
   const totalMatches = fileSearchVisible ? getSearchMatches() : 0;
 
-  // Navigate to next/prev match in preview mode
+  // Navigate to next/prev match
   const navigateMatch = (direction) => {
-    if (!previewRef.current || totalMatches === 0) return;
-    const highlights = previewRef.current.querySelectorAll('.fm-search-highlight');
-    if (highlights.length === 0) return;
+    if (totalMatches === 0 || !editorRef.current) return;
 
     let newIndex = currentMatchIndex + direction;
-    if (newIndex < 0) newIndex = highlights.length - 1;
-    if (newIndex >= highlights.length) newIndex = 0;
+    if (newIndex < 0) newIndex = totalMatches - 1;
+    if (newIndex >= totalMatches) newIndex = 0;
     setCurrentMatchIndex(newIndex);
 
-    // Remove active class from all, add to current
-    highlights.forEach(el => el.classList.remove('fm-search-active'));
-    highlights[newIndex].classList.add('fm-search-active');
-    highlights[newIndex].scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
-
-  // Render text with search highlights
-  const renderHighlightedContent = (text) => {
-    if (!fileSearch || !text) return text;
-    try {
-      const escaped = fileSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(${escaped})`, 'gi');
-      const parts = text.split(regex);
-      let matchIdx = 0;
-      return parts.map((part, i) => {
-        if (regex.test(part)) {
-          regex.lastIndex = 0; // reset after test
-          const idx = matchIdx++;
-          return (
-            <mark key={i} className={`fm-search-highlight ${idx === currentMatchIndex ? 'fm-search-active' : ''}`}>
-              {part}
-            </mark>
-          );
-        }
-        return part;
-      });
-    } catch {
-      return text;
+    const escaped = fileSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(escaped, 'gi');
+    const positions = [];
+    let m;
+    while ((m = regex.exec(fileContent)) !== null) {
+      positions.push({ start: m.index, end: m.index + m[0].length });
+    }
+    if (positions[newIndex]) {
+      const { start, end } = positions[newIndex];
+      editorRef.current.focus();
+      editorRef.current.setSelectionRange(start, end);
+      const linesBefore = fileContent.substring(0, start).split('\n').length - 1;
+      const lineHeight = parseInt(getComputedStyle(editorRef.current).lineHeight) || 20;
+      editorRef.current.scrollTop = Math.max(0, linesBefore * lineHeight - editorRef.current.clientHeight / 2);
     }
   };
+
 
   // Toggle search with Ctrl+F
   useEffect(() => {
@@ -911,7 +895,7 @@ export default function FileManager({ serverId }) {
                   <p className="fm-binary-hint">Questo tipo di file non può essere visualizzato come testo.</p>
                   <p className="fm-binary-hint">Dimensione: {formatSize(selectedFile.size)}</p>
                 </div>
-              ) : editMode ? (
+              ) : (
                 <div className={`fm-code-container ${wordWrap ? 'fm-wrap' : ''}`}>
                   <div className="fm-line-numbers" ref={lineNumbersRef}>
                     {fileContent.split('\n').map((_, i) => (
@@ -928,19 +912,9 @@ export default function FileManager({ serverId }) {
                       }
                     }}
                     className="fm-editor"
+                    readOnly={!editMode}
                     spellCheck={false}
                   />
-                </div>
-              ) : (
-                <div className={`fm-code-container ${wordWrap ? 'fm-wrap' : ''}`}>
-                  <div className="fm-line-numbers">
-                    {fileContent.split('\n').map((_, i) => (
-                      <div key={i} className="fm-line-number">{i + 1}</div>
-                    ))}
-                  </div>
-                  <pre className="fm-preview" ref={previewRef}>
-                    {fileSearch && fileSearchVisible ? renderHighlightedContent(fileContent) : fileContent}
-                  </pre>
                 </div>
               )}
             </div>
