@@ -18,13 +18,18 @@ export default async function handler(req, res) {
   } else if (req.method === 'POST') {
     // POST: Imposta modpack sul server
     try {
-      const { source, slug, name, projectId } = req.body;
+      const { source, slug, name, projectId, versionId, versionNumber, versionDownloadUrl } = req.body;
 
       if (!source || !slug) {
         return res.status(400).json({ error: 'source e slug sono obbligatori' });
       }
 
-      config[index].modpack = { source, slug, name, projectId };
+      config[index].modpack = {
+        source, slug, name, projectId,
+        ...(versionId ? { versionId } : {}),
+        ...(versionNumber ? { versionNumber } : {}),
+        ...(versionDownloadUrl ? { versionDownloadUrl } : {}),
+      };
       await saveConfig(config);
 
       // Rigenera docker-compose con env vars modpack

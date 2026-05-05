@@ -63,6 +63,9 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   const [modpackSearching, setModpackSearching] = useState(false);
   const [modpackInstalling, setModpackInstalling] = useState(false);
   const [removingModpack, setRemovingModpack] = useState(false);
+  const [modpackVersionsMap, setModpackVersionsMap] = useState({}); // { [id]: versions[] }
+  const [modpackVersionsLoading, setModpackVersionsLoading] = useState({}); // { [id]: bool }
+  const [selectedVersionMap, setSelectedVersionMap] = useState({}); // { [id]: version object | null }
 
   // Determine project type based on server type
   const projectType = ['paper', 'spigot', 'purpur', 'velocity', 'waterfall'].includes(serverType)
@@ -556,6 +559,19 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   };
 
   // Modpack functions
+  const fetchModpackVersions = async (mp) => {
+    if (modpackVersionsMap[mp.id] || modpackVersionsLoading[mp.id]) return;
+    setModpackVersionsLoading(prev => ({ ...prev, [mp.id]: true }));
+    try {
+      const res = await fetch(`/api/mods/versions?source=${mp.source}&projectId=${mp.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModpackVersionsMap(prev => ({ ...prev, [mp.id]: data.versions || [] }));
+      }
+    } catch {}
+    setModpackVersionsLoading(prev => ({ ...prev, [mp.id]: false }));
+  };
+
   const searchModpacks = async () => {
     if (!modpackSearch.trim()) return;
     setModpackSearching(true);
@@ -569,7 +585,10 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
       const res = await fetch(`/api/mods/search?${params}`);
       if (res.ok) {
         const data = await res.json();
-        setModpackResults(data.mods || []);
+        const results = data.mods || [];
+        setModpackResults(results);
+        // Carica le versioni in parallelo per tutti i risultati
+        results.forEach(mp => fetchModpackVersions(mp));
       }
     } catch (error) {
       console.error('Modpack search error:', error);
@@ -579,7 +598,9 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   };
 
   const installModpack = async (mp) => {
-    if (!confirm(`Installare il modpack "${mp.name}"? Il server type verrà gestito dal modpack. Richiederà un riavvio del server.`)) return;
+    const selectedVersion = selectedVersionMap[mp.id] || null;
+    const versionLabel = selectedVersion ? ` (v${selectedVersion.versionNumber || selectedVersion.name})` : ' (ultima versione)';
+    if (!confirm(`Installare il modpack "${mp.name}"${versionLabel}? Il server type verrà gestito dal modpack. Richiederà un riavvio del server.`)) return;
     setModpackInstalling(true);
     try {
       const res = await fetch(`/api/servers/${serverId}/modpack`, {
@@ -589,7 +610,12 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
           source: mp.source,
           slug: mp.slug,
           name: mp.name,
-          projectId: mp.id
+          projectId: mp.id,
+          ...(selectedVersion ? {
+            versionId: selectedVersion.id,
+            versionNumber: selectedVersion.versionNumber || selectedVersion.name,
+            versionDownloadUrl: selectedVersion.downloadUrl || null,
+          } : {}),
         })
       });
       if (res.ok) {
@@ -1036,6 +1062,9 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
                 <div>
                   <strong>{modpack.name}</strong>
                   <span className={`modpack-source-badge ${modpack.source}`}>{modpack.source}</span>
+                  {modpack.versionNumber && (
+                    <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 6 }}>v{modpack.versionNumber}</span>
+                  )}
                 </div>
               </div>
               <button
@@ -1086,14 +1115,36 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
                       </div>
                       <p className="modpack-result-desc">{mp.description}</p>
                     </div>
-                    <button
-                      className="btn btn-primary modpack-install-btn"
-                      onClick={() => installModpack(mp)}
-                      disabled={modpackInstalling}
-                    >
-                      {modpackInstalling ? <Loader size={14} className="spin" /> : <Download size={14} />}
-                      Installa
-                    </button>
+                    <div className="modpack-version-install">
+                      {modpackVersionsLoading[mp.id] ? (
+                        <span style={{ fontSize: 12, opacity: 0.5 }}>Caricamento versioni...</span>
+                      ) : (
+                        <select
+                          value={selectedVersionMap[mp.id]?.id || ''}
+                          onChange={e => {
+                            const v = (modpackVersionsMap[mp.id] || []).find(v => v.id === e.target.value) || null;
+                            setSelectedVersionMap(prev => ({ ...prev, [mp.id]: v }));
+                          }}
+                          className="modpack-version-select"
+                        >
+                          <option value="">Ultima versione</option>
+                          {(modpackVersionsMap[mp.id] || []).map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.versionNumber || v.name}
+                              {v.gameVersions?.length ? ` — MC ${v.gameVersions[0]}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        className="btn btn-primary modpack-install-btn"
+                        onClick={() => installModpack(mp)}
+                        disabled={modpackInstalling}
+                      >
+                        {modpackInstalling ? <Loader size={14} className="spin" /> : <Download size={14} />}
+                        Installa
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -3476,6 +3476,25 @@ label svg {
   cursor: not-allowed;
 }
 
+.modpack-version-install {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex-shrink: 0;
+  min-width: 140px;
+}
+
+.modpack-version-select {
+  background: #0a0e27;
+  border: 1px solid #1e2747;
+  border-radius: 5px;
+  color: #e2e8f0;
+  font-size: 12px;
+  padding: 4px 6px;
+  width: 100%;
+}
+
 .modpack-install-btn {
   flex-shrink: 0;
   display: flex;
