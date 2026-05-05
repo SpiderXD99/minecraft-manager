@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import {
   Home, ChevronUp, FolderPlus, FilePlus, Upload, Archive,
-  RefreshCw, Folder, File, Download, Edit3, PackageOpen,
+  RefreshCw, Folder, File, Download, Edit3, PackageOpen, ArrowDownToLine,
   FolderOpen, Trash2, Save, X, Check, Loader,
   ArrowUpDown, ArrowUp, ArrowDown, Search,
   FileText, FileCode, FileJson, FileImage, FileArchive,
@@ -619,9 +619,70 @@ export default function FileManager({ serverId, serverName }) {
     return sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
   };
 
-  const downloadServer = () => {
-    // Stream diretto: il server genera lo zip on-the-fly e lo invia senza salvarlo su disco
-    window.location.href = `/api/servers/${serverId}/backup`;
+  const [downloadState, setDownloadState] = useState('idle'); // 'idle' | 'compressing' | 'downloading'
+  const [backupProgress, setBackupProgress] = useState({ current: 0, total: 0 });
+
+  const downloadServer = async () => {
+    if (downloadState !== 'idle') return;
+    const safeName = (serverName || serverId).replace(/[^a-zA-Z0-9_\-\.]/g, '_');
+
+    setDownloadState('compressing');
+    setBackupProgress({ current: 0, total: 0 });
+
+    try {
+      // 1. Avvia il job di backup
+      const startRes = await fetch(`/api/servers/${serverId}/backup`, { method: 'POST' });
+      if (!startRes.ok) throw new Error('Errore avvio backup');
+      const { jobId } = await startRes.json();
+
+      // 2. Ascolta i progressi via Socket.IO
+      await new Promise((resolve, reject) => {
+        const socket = socketRef.current;
+        if (!socket) { resolve(); return; }
+
+        const onEvent = (data) => {
+          if (data.jobId !== jobId) return;
+          if (data.phase === 'compressing') {
+            setBackupProgress({ current: data.current, total: data.total });
+          } else if (data.phase === 'done') {
+            socket.off(`backup-${serverId}`, onEvent);
+            resolve();
+          } else if (data.phase === 'error') {
+            socket.off(`backup-${serverId}`, onEvent);
+            reject(new Error(data.error || 'Errore durante la compressione'));
+          }
+        };
+
+        socket.on(`backup-${serverId}`, onEvent);
+
+        // Timeout sicurezza 20 minuti
+        setTimeout(() => {
+          socket.off(`backup-${serverId}`, onEvent);
+          reject(new Error('Timeout backup'));
+        }, 20 * 60 * 1000);
+      });
+
+      // 3. Scarica il file completato
+      setDownloadState('downloading');
+      const dlRes = await fetch(`/api/servers/${serverId}/backup?jobId=${jobId}`);
+      if (!dlRes.ok) throw new Error('Errore download');
+
+      const blob = await dlRes.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${safeName}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+    } catch (error) {
+      alert(`Errore download server: ${error.message}`);
+    } finally {
+      setDownloadState('idle');
+      setBackupProgress({ current: 0, total: 0 });
+    }
   };
 
   return (
@@ -662,9 +723,14 @@ export default function FileManager({ serverId, serverName }) {
           <button
             className="btn btn-sm btn-secondary"
             onClick={downloadServer}
+            disabled={downloadState !== 'idle'}
             title="Scarica tutto il server come ZIP"
           >
-            <Download size={16} /> Scarica Server
+            {downloadState === 'compressing' && (
+              <><Loader size={16} className="spin" /> Compressione...{backupProgress.total > 0 && ` (${backupProgress.current}/${backupProgress.total})`}</>
+            )}
+            {downloadState === 'downloading' && <><ArrowDownToLine size={16} /> Downloading...</>}
+            {downloadState === 'idle' && <><Download size={16} /> Scarica Server</>}
           </button>
           <button className="btn btn-sm btn-secondary" onClick={loadFiles}>
             <RefreshCw size={16} /> Ricarica
