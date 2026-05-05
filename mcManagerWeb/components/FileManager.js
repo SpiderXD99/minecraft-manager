@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 
-export default function FileManager({ serverId }) {
+export default function FileManager({ serverId, serverName }) {
   const [currentPath, setCurrentPath] = useState('');
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -619,6 +619,11 @@ export default function FileManager({ serverId }) {
     return sortOrder === 'asc' ? <ArrowUp size={12} /> : <ArrowDown size={12} />;
   };
 
+  const downloadServer = () => {
+    // Stream diretto: il server genera lo zip on-the-fly e lo invia senza salvarlo su disco
+    window.location.href = `/api/servers/${serverId}/backup`;
+  };
+
   return (
     <div className="file-manager">
       {/* Toolbar */}
@@ -654,6 +659,13 @@ export default function FileManager({ serverId }) {
             <Archive size={16} /> Upload Archivio
             <input type="file" accept=".zip,.tar,.tar.gz,.tgz" onChange={uploadFiles} className="fm-upload-input" />
           </label>
+          <button
+            className="btn btn-sm btn-secondary"
+            onClick={downloadServer}
+            title="Scarica tutto il server come ZIP"
+          >
+            <Download size={16} /> Scarica Server
+          </button>
           <button className="btn btn-sm btn-secondary" onClick={loadFiles}>
             <RefreshCw size={16} /> Ricarica
           </button>

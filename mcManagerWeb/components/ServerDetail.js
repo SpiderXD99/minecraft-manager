@@ -1006,7 +1006,7 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
         )}
 
         {activeTab === 'files' && (
-          <FileManager serverId={server.id} />
+          <FileManager serverId={server.id} serverName={server.name} />
         )}
 
         {activeTab === 'mods' && (
