@@ -176,17 +176,18 @@ async function generateDockerCompose(serverId, server) {
           // Configurazione con SSL (HTTPS + redirect HTTP->HTTPS)
           traefikLabels.push(
             `      - "traefik.enable=true"`,
-            // HTTP router (redirect to HTTPS)
+            // HTTP router (redirect to HTTPS) — nessun servizio necessario per il redirect
             `      - "traefik.http.routers.${routerName}-http.rule=Host(\`${serviceSubdomain}\`)"`,
             `      - "traefik.http.routers.${routerName}-http.entrypoints=web"`,
             `      - "traefik.http.routers.${routerName}-http.middlewares=${routerName}-redirect"`,
             `      - "traefik.http.middlewares.${routerName}-redirect.redirectscheme.scheme=https"`,
             `      - "traefik.http.middlewares.${routerName}-redirect.redirectscheme.permanent=true"`,
-            // HTTPS router
+            // HTTPS router — service esplicito per evitare che Traefik usi la porta di default
             `      - "traefik.http.routers.${routerName}.rule=Host(\`${serviceSubdomain}\`)"`,
             `      - "traefik.http.routers.${routerName}.entrypoints=websecure"`,
             `      - "traefik.http.routers.${routerName}.tls=true"`,
             `      - "traefik.http.routers.${routerName}.tls.certresolver=letsencrypt"`,
+            `      - "traefik.http.routers.${routerName}.service=${routerName}"`,
             `      - "traefik.http.services.${routerName}.loadbalancer.server.port=${port}"`
           );
         } else {
@@ -195,6 +196,7 @@ async function generateDockerCompose(serverId, server) {
             `      - "traefik.enable=true"`,
             `      - "traefik.http.routers.${routerName}.rule=Host(\`${serviceSubdomain}\`)"`,
             `      - "traefik.http.routers.${routerName}.entrypoints=web"`,
+            `      - "traefik.http.routers.${routerName}.service=${routerName}"`,
             `      - "traefik.http.services.${routerName}.loadbalancer.server.port=${port}"`
           );
         }
@@ -565,6 +567,28 @@ async function isServerRunning(serverId) {
   }
 }
 
+/**
+ * Applica la configurazione aggiornata al container in esecuzione.
+ * Se il server è attivo esegue `docker compose up -d` che ricrea il container
+ * con le nuove label/env senza perdere i dati (i volumi rimangono intatti).
+ * Se il server è fermo non fa nulla (la nuova config verrà usata al prossimo Start).
+ * @returns {boolean} true se il container è stato ricreato, false se era già fermo
+ */
+async function applyDockerCompose(serverId) {
+  const running = await isServerRunning(serverId);
+  if (!running) return false;
+
+  const serverDir = path.join(SERVERS_DIR, serverId);
+  try {
+    await execAsync('docker compose up -d', { cwd: serverDir });
+    console.log(`[Config] Container ${serverId} ricreato con la nuova configurazione`);
+    return true;
+  } catch (error) {
+    console.error(`[Config] Errore aggiornamento container ${serverId}:`, error.message);
+    throw error;
+  }
+}
+
 // Ottieni log di un server
 async function getServerLogs(serverId, lines = 500) {
   try {
@@ -600,5 +624,6 @@ module.exports = {
   isServerRunning,
   getServerLogs,
   generateDockerCompose,
+  applyDockerCompose,
   SERVERS_DIR,
 };
