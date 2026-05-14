@@ -45,10 +45,15 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   const [updating, setUpdating] = useState({});
   const [toggling, setToggling] = useState({});
 
-  // Version selector state
+  // Version selector state (expand panel)
   const [showVersions, setShowVersions] = useState(null); // modId or null
   const [modVersions, setModVersions] = useState({}); // { modId: versions[] }
   const [loadingVersions, setLoadingVersions] = useState({});
+
+  // Inline version select per install
+  const [modVersionsList, setModVersionsList] = useState({});       // { modId: version objects[] }
+  const [modVersionsListLoading, setModVersionsListLoading] = useState({}); // { modId: bool }
+  const [selectedModVersionMap, setSelectedModVersionMap] = useState({}); // { modId: version obj | null }
 
   // Dependency modal state
   const [showDependencyModal, setShowDependencyModal] = useState(false);
@@ -215,6 +220,25 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   };
 
   // Load versions for a mod
+  const loadModVersionsList = async (mod) => {
+    if (modVersionsList[mod.id] !== undefined || modVersionsListLoading[mod.id]) return;
+    setModVersionsListLoading(prev => ({ ...prev, [mod.id]: true }));
+    try {
+      const params = new URLSearchParams({
+        source: mod.source,
+        projectId: mod.id,
+        loaders: serverLoaders.join(','),
+        gameVersion: minecraftVersion || ''
+      });
+      const res = await fetch(`/api/mods/versions?${params}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModVersionsList(prev => ({ ...prev, [mod.id]: data.versions || [] }));
+      }
+    } catch {}
+    setModVersionsListLoading(prev => ({ ...prev, [mod.id]: false }));
+  };
+
   const loadVersions = async (mod) => {
     if (showVersions === mod.id) {
       setShowVersions(null);
@@ -850,18 +874,40 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
                         <Check size={14} /> Installato
                       </span>
                     ) : (
-                      <button
-                        className="mod-install-btn"
-                        onClick={() => installMod(mod)}
-                        disabled={installing[mod.id] || checkingDependencies[mod.id]}
-                      >
-                        {installing[mod.id] || checkingDependencies[mod.id] ? (
-                          <Loader size={14} className="spin" />
-                        ) : (
-                          <Download size={14} />
-                        )}
-                        {checkingDependencies[mod.id] ? 'Controllo...' : 'Installa'}
-                      </button>
+                      <div className="mod-install-group">
+                        <select
+                          className="mod-version-select"
+                          value={selectedModVersionMap[mod.id]?.id || ''}
+                          onFocus={() => loadModVersionsList(mod)}
+                          onChange={e => {
+                            const v = (modVersionsList[mod.id] || []).find(v => v.id === e.target.value) || null;
+                            setSelectedModVersionMap(prev => ({ ...prev, [mod.id]: v }));
+                          }}
+                          disabled={installing[mod.id] || checkingDependencies[mod.id]}
+                          title="Seleziona versione"
+                        >
+                          <option value="">Ultima compatibile</option>
+                          {modVersionsListLoading[mod.id] && <option disabled>Caricamento...</option>}
+                          {(modVersionsList[mod.id] || []).map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.versionNumber || v.name}
+                              {v.gameVersions?.length ? ` (MC ${v.gameVersions[0]})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          className="mod-install-btn"
+                          onClick={() => installMod(mod, selectedModVersionMap[mod.id]?.id || null)}
+                          disabled={installing[mod.id] || checkingDependencies[mod.id]}
+                        >
+                          {installing[mod.id] || checkingDependencies[mod.id] ? (
+                            <Loader size={14} className="spin" />
+                          ) : (
+                            <Download size={14} />
+                          )}
+                          {checkingDependencies[mod.id] ? 'Controllo...' : 'Installa'}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
