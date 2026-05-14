@@ -369,8 +369,12 @@ export default function ServerDetail({ server, onUpdate, onDelete, socket }) {
       });
 
       if (res.ok) {
+        const data = await res.json();
         setIsEditing(false);
         onUpdate();
+        if (data._restarted) {
+          alert('✓ Configurazione applicata — il container è stato ricreato con le nuove impostazioni.');
+        }
       } else {
         const data = await res.json();
         alert(data.error || 'Errore aggiornamento server');
