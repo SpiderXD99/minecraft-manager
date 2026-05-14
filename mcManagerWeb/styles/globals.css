@@ -2538,6 +2538,28 @@ label svg {
   gap: 0.5rem;
 }
 
+.mod-install-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.mod-version-select {
+  background: #0a0e27;
+  border: 1px solid #1e2747;
+  border-radius: 5px;
+  color: #e2e8f0;
+  font-size: 11px;
+  padding: 3px 5px;
+  max-width: 130px;
+  cursor: pointer;
+}
+
+.mod-version-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 .mod-link-btn {
   display: flex;
   align-items: center;
