@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const { readConfig, saveConfig, removeServer, generateDockerCompose, SERVERS_DIR } = require('../../../lib/docker-server-manager');
+const { readConfig, saveConfig, removeServer, generateDockerCompose, applyDockerCompose, SERVERS_DIR } = require('../../../lib/docker-server-manager');
 const { getIO } = require('../../../lib/socket');
 const { updateDockerComposeMappings } = require('../../../lib/mc-router-config');
 
@@ -26,12 +26,14 @@ export default async function handler(req, res) {
       // Rigenera il docker-compose se sono cambiate proprietà che lo influenzano
       const needsRegenerate = ['subdomain', 'name', 'serverType', 'javaVersion', 'minecraftVersion', 'maxRam', 'minRam', 'additionalPorts', 'javaArgs', 'autopause', 'modpack']
         .some(key => updates[key] !== undefined);
+      let restarted = false;
       if (needsRegenerate) {
         await generateDockerCompose(id, config[index]);
         await updateDockerComposeMappings(config);
+        restarted = await applyDockerCompose(id);
       }
 
-      res.status(200).json(config[index]);
+      res.status(200).json({ ...config[index], _restarted: restarted });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }

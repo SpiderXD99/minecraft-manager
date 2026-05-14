@@ -33,7 +33,8 @@ export default async function handler(req, res) {
     const form = formidable({
       multiples: true,
       keepExtensions: true,
-      maxFileSize: 500 * 1024 * 1024, // 500MB max per file
+      maxFileSize: 10 * 1024 * 1024 * 1024,      // 10GB per file
+      maxTotalFileSize: 10 * 1024 * 1024 * 1024, // 10GB totale
       uploadDir: '/tmp',
       allowEmptyFiles: false,
       minFileSize: 0,
