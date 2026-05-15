@@ -3,7 +3,7 @@ import {
   Search, Download, Trash2, RefreshCw, Check, X, Loader,
   Package, Power, PowerOff, ArrowUpCircle, ExternalLink,
   Box, Puzzle, ChevronDown, AlertCircle, SlidersHorizontal,
-  ArrowDownWideNarrow, Calendar, Type, Link2
+  ArrowDownWideNarrow, Calendar, Type, Link2, ArrowUpDown
 } from 'lucide-react';
 
 export default function ModsManager({ serverId, serverType, minecraftVersion, modpack, onUpdate }) {
@@ -50,10 +50,15 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   const [modVersions, setModVersions] = useState({}); // { modId: versions[] }
   const [loadingVersions, setLoadingVersions] = useState({});
 
-  // Inline version select per install
+  // Inline version select per install (ricerca)
   const [modVersionsList, setModVersionsList] = useState({});       // { modId: version objects[] }
   const [modVersionsListLoading, setModVersionsListLoading] = useState({}); // { modId: bool }
   const [selectedModVersionMap, setSelectedModVersionMap] = useState({}); // { modId: version obj | null }
+
+  // Cambia versione mod installata
+  const [changeVersionFor, setChangeVersionFor] = useState(null);   // modId aperto
+  const [changeVersionSelected, setChangeVersionSelected] = useState({}); // { modId: versionId }
+  const [changingVersion, setChangingVersion] = useState({});       // { modId: bool }
 
   // Dependency modal state
   const [showDependencyModal, setShowDependencyModal] = useState(false);
@@ -224,9 +229,10 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
     if (modVersionsList[mod.id] !== undefined || modVersionsListLoading[mod.id]) return;
     setModVersionsListLoading(prev => ({ ...prev, [mod.id]: true }));
     try {
+      // I mod installati hanno id='modrinth:XYZ' ma projectId='XYZ' — usiamo projectId se disponibile
       const params = new URLSearchParams({
         source: mod.source,
-        projectId: mod.id,
+        projectId: mod.projectId || mod.id,
         loaders: serverLoaders.join(','),
         gameVersion: minecraftVersion || ''
       });
@@ -507,6 +513,30 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
   };
 
   // Update a mod
+  const changeModVersion = async (mod) => {
+    const versionId = changeVersionSelected[mod.id];
+    if (!versionId) return;
+    setChangingVersion(prev => ({ ...prev, [mod.id]: true }));
+    try {
+      const res = await fetch(`/api/servers/${serverId}/mods/${encodeURIComponent(mod.id)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'update', versionId })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Errore cambio versione');
+      }
+      setChangeVersionFor(null);
+      setChangeVersionSelected(prev => { const n = {...prev}; delete n[mod.id]; return n; });
+      await loadInstalledMods();
+    } catch (error) {
+      alert(`Errore: ${error.message}`);
+    } finally {
+      setChangingVersion(prev => ({ ...prev, [mod.id]: false }));
+    }
+  };
+
   const updateMod = async (mod) => {
     setUpdating(prev => ({ ...prev, [mod.id]: true }));
     try {
@@ -975,6 +1005,52 @@ export default function ModsManager({ serverId, serverType, minecraftVersion, mo
                         >
                           <ExternalLink size={14} />
                         </a>
+
+                        {/* Cambia versione */}
+                        {changeVersionFor === mod.id ? (
+                          <div className="mod-change-version-row">
+                            <select
+                              className="mod-version-select"
+                              value={changeVersionSelected[mod.id] || ''}
+                              autoFocus
+                              onFocus={() => loadModVersionsList(mod)}
+                              onChange={e => setChangeVersionSelected(prev => ({ ...prev, [mod.id]: e.target.value }))}
+                            >
+                              <option value="">Seleziona versione...</option>
+                              {modVersionsListLoading[mod.id] && <option disabled>Caricamento...</option>}
+                              {(modVersionsList[mod.id] || []).map(v => (
+                                <option key={v.id} value={v.id}>
+                                  {v.versionNumber || v.name}
+                                  {v.gameVersions?.length ? ` (MC ${v.gameVersions[0]})` : ''}
+                                  {mod.installedVersion && (v.versionNumber || v.name) === mod.installedVersion ? ' ✓' : ''}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="mod-install-btn"
+                              onClick={() => changeModVersion(mod)}
+                              disabled={!changeVersionSelected[mod.id] || changingVersion[mod.id]}
+                              title="Applica versione"
+                            >
+                              {changingVersion[mod.id] ? <Loader size={13} className="spin" /> : <Check size={13} />}
+                            </button>
+                            <button
+                              className="mod-remove-btn"
+                              onClick={() => { setChangeVersionFor(null); setChangeVersionSelected(prev => { const n={...prev}; delete n[mod.id]; return n; }); }}
+                              title="Annulla"
+                            >
+                              <X size={13} />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            className="mod-link-btn small"
+                            onClick={() => { setChangeVersionFor(mod.id); loadModVersionsList(mod); }}
+                            title="Cambia versione"
+                          >
+                            <ArrowUpDown size={13} />
+                          </button>
+                        )}
                       </>
                     ) : mod.orphan && (
                       <>
