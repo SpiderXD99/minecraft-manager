@@ -50,7 +50,8 @@ export default function SystemStats() {
 
   useEffect(() => { load(); }, []);
 
-  const ramPercent = stats ? Math.round((stats.ram.used / stats.ram.total) * 100) : 0;
+  const ramPercent      = stats ? Math.round((stats.ram.used      / stats.ram.total) * 100) : 0;
+  const ramBuffPercent  = stats ? Math.round((stats.ram.buffCache / stats.ram.total) * 100) : 0;
   const diskPercent = stats ? Math.round((stats.disk.used / stats.disk.total) * 100) : 0;
 
   return (
@@ -78,10 +79,29 @@ export default function SystemStats() {
               <MiniBar percent={stats.cpu.percent} color="#2196f3" />
             </StatCard>
 
-            <StatCard icon={<MemoryStick size={14} />} label="RAM">
+            <StatCard icon={<MemoryStick size={14} />} label={`RAM — ${formatBytes(stats.ram.total)}`}>
               <div className="sysstat-big">{formatBytes(stats.ram.used)}</div>
-              <MiniBar percent={ramPercent} color="#9c27b0" />
-              <div className="sysstat-sub">{formatBytes(stats.ram.free)} libera · totale {formatBytes(stats.ram.total)}</div>
+              {/* Barra segmentata a colori: used | buff/cache | free */}
+              <div style={{ display:'flex', height:6, borderRadius:3, overflow:'hidden', marginBottom:6 }}>
+                <div style={{ width:`${ramPercent}%`, background: ramPercent > 85 ? '#f44336' : '#ff9800', transition:'width 0.4s' }} />
+                <div style={{ width:`${ramBuffPercent}%`, background:'#9c27b0', transition:'width 0.4s' }} />
+                <div style={{ flex:1, background:'rgba(255,255,255,0.07)' }} />
+              </div>
+              {/* Legenda su riga singola */}
+              <div style={{ display:'flex', gap:10, fontSize:11, flexWrap:'wrap' }}>
+                <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ width:7, height:7, borderRadius:1, background:'#ff9800', display:'inline-block', flexShrink:0 }} />
+                  <span style={{ opacity:0.6 }}>Usata</span> {formatBytes(stats.ram.used)}
+                </span>
+                <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ width:7, height:7, borderRadius:1, background:'#9c27b0', display:'inline-block', flexShrink:0 }} />
+                  <span style={{ opacity:0.6 }}>Cache</span> {formatBytes(stats.ram.buffCache)}
+                </span>
+                <span style={{ display:'flex', alignItems:'center', gap:4 }}>
+                  <span style={{ width:7, height:7, borderRadius:1, background:'rgba(255,255,255,0.07)', border:'1px solid #334', display:'inline-block', flexShrink:0 }} />
+                  <span style={{ opacity:0.6 }}>Libera</span> {formatBytes(stats.ram.free)}
+                </span>
+              </div>
             </StatCard>
 
             <StatCard icon={<HardDrive size={14} />} label="Disco">

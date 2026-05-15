@@ -2745,6 +2745,14 @@ label svg {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.mod-change-version-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .mod-toggle-btn,

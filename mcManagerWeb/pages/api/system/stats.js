@@ -1,8 +1,32 @@
 const os = require('os');
+const fs = require('fs');
 const { exec } = require('child_process');
 const { promisify } = require('util');
 const path = require('path');
 const { SERVERS_DIR, readConfig } = require('../../../lib/docker-server-manager');
+
+function getRamStats() {
+  try {
+    const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
+    const parse = (key) => {
+      const m = meminfo.match(new RegExp(`^${key}:\\s+(\\d+)`, 'm'));
+      return m ? parseInt(m[1]) * 1024 : 0; // kB → bytes
+    };
+    const total     = parse('MemTotal');
+    const free      = parse('MemFree');
+    const available = parse('MemAvailable');
+    const buffers   = parse('Buffers');
+    const cached    = parse('Cached');    // "Cached:" (esclude SwapCached)
+    const sreclaimable = parse('SReclaimable');
+    const buffCache = buffers + cached + sreclaimable;
+    const used      = total - available;
+    return { total, used, free, available, buffCache };
+  } catch {
+    const total = os.totalmem();
+    const free  = os.freemem();
+    return { total, used: total - free, free, available: free, buffCache: 0 };
+  }
+}
 
 const execAsync = promisify(exec);
 
@@ -122,7 +146,7 @@ export default async function handler(req, res) {
 
     res.status(200).json({
       cpu: { percent: cpuPercent, cores: os.cpus().length },
-      ram: { total: os.totalmem(), used: os.totalmem() - os.freemem(), free: os.freemem() },
+      ram: getRamStats(),
       disk,
       uptime: os.uptime(),
       servers
