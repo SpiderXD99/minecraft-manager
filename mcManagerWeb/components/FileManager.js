@@ -46,6 +46,18 @@ export default function FileManager({ serverId, serverName }) {
   const [archiveJob, setArchiveJob] = useState(null); // { jobId, status, message, filename, type }
   const socketRef = useRef(null);
 
+  // Multi-select & drag state
+  const [selectedItems, setSelectedItems] = useState(new Set());
+  const [dragOverFolder, setDragOverFolder] = useState(null);
+  const [externalDragOver, setExternalDragOver] = useState(false);
+  const [draggingItem, setDraggingItem] = useState(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [moveDestPath, setMoveDestPath] = useState('');
+  const [moveModalBrowsePath, setMoveModalBrowsePath] = useState('');
+  const [moveModalFolders, setMoveModalFolders] = useState([]);
+  const [moveModalLoading, setMoveModalLoading] = useState(false);
+  const [itemsToMove, setItemsToMove] = useState([]);
+
   // Socket.IO connection for archive job updates
   useEffect(() => {
     const socket = io({
@@ -76,6 +88,7 @@ export default function FileManager({ serverId, serverName }) {
 
   useEffect(() => {
     loadFiles();
+    setSelectedItems(new Set());
   }, [currentPath, serverId]);
 
   const loadFiles = async () => {
@@ -685,6 +698,169 @@ export default function FileManager({ serverId, serverName }) {
     }
   };
 
+  // ── Multi-select ──────────────────────────────────────────────
+  const toggleSelect = (filePath, e) => {
+    e.stopPropagation();
+    setSelectedItems(prev => {
+      const next = new Set(prev);
+      next.has(filePath) ? next.delete(filePath) : next.add(filePath);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const sorted = getSortedFiles();
+    if (selectedItems.size === sorted.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(sorted.map(f => f.path)));
+    }
+  };
+
+  // ── Delete selected ───────────────────────────────────────────
+  const deleteSelected = async () => {
+    if (!window.confirm(`Eliminare ${selectedItems.size} elemento/i selezionati?`)) return;
+    for (const p of selectedItems) {
+      await fetch(`/api/servers/${serverId}/files`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: p })
+      });
+    }
+    setSelectedItems(new Set());
+    loadFiles();
+  };
+
+  // ── Move files ────────────────────────────────────────────────
+  const loadMoveModalFolders = async (browsePath) => {
+    setMoveModalLoading(true);
+    try {
+      const res = await fetch(`/api/servers/${serverId}/files?path=${encodeURIComponent(browsePath)}`);
+      const data = await res.json();
+      setMoveModalFolders((data.files || []).filter(f => f.type === 'directory'));
+      setMoveModalBrowsePath(browsePath);
+      setMoveDestPath(browsePath);
+    } catch {}
+    setMoveModalLoading(false);
+  };
+
+  const openMoveModal = (items) => {
+    setItemsToMove(items);
+    setMoveDestPath(currentPath);
+    loadMoveModalFolders(currentPath);
+    setShowMoveModal(true);
+  };
+
+  const executeMoveItems = async () => {
+    for (const itemPath of itemsToMove) {
+      const name = itemPath.split('/').pop();
+      const destFile = moveDestPath ? `${moveDestPath}/${name}` : name;
+      await fetch(`/api/servers/${serverId}/files`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: itemPath, newPath: destFile, action: 'move' })
+      });
+    }
+    setShowMoveModal(false);
+    setSelectedItems(new Set());
+    loadFiles();
+  };
+
+  // ── Internal drag-to-folder ───────────────────────────────────
+  const handleRowDragStart = (e, file) => {
+    setDraggingItem(file);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', file.path);
+  };
+
+  const handleRowDragEnd = () => {
+    setDraggingItem(null);
+    setDragOverFolder(null);
+  };
+
+  const handleFolderDragOver = (e, folder) => {
+    if (!draggingItem || draggingItem.path === folder.path) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverFolder(folder.path);
+  };
+
+  const handleFolderDrop = async (e, folder) => {
+    e.preventDefault();
+    setDragOverFolder(null);
+    if (!draggingItem || draggingItem.path === folder.path) return;
+
+    const itemsToMoveNow = selectedItems.size > 1 && selectedItems.has(draggingItem.path)
+      ? [...selectedItems]
+      : [draggingItem.path];
+
+    for (const itemPath of itemsToMoveNow) {
+      const name = itemPath.split('/').pop();
+      await fetch(`/api/servers/${serverId}/files`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: itemPath, newPath: `${folder.path}/${name}`, action: 'move' })
+      });
+    }
+    setSelectedItems(new Set());
+    setDraggingItem(null);
+    loadFiles();
+  };
+
+  // ── External file drop (upload) ───────────────────────────────
+  const handleExternalDragOver = (e) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      e.preventDefault();
+      setExternalDragOver(true);
+    }
+  };
+
+  const handleExternalDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setExternalDragOver(false);
+    }
+  };
+
+  const handleExternalDrop = async (e) => {
+    e.preventDefault();
+    setExternalDragOver(false);
+    if (draggingItem) return; // internal drag, ignore
+    const droppedFiles = e.dataTransfer.files;
+    if (!droppedFiles || droppedFiles.length === 0) return;
+
+    const formData = new FormData();
+    formData.append('path', currentPath);
+    let totalSize = 0;
+    const fileNames = [];
+    for (let i = 0; i < droppedFiles.length; i++) {
+      const f = droppedFiles[i];
+      totalSize += f.size;
+      fileNames.push(f.name);
+      formData.append('files', f);
+    }
+    const fileName = droppedFiles.length === 1 ? fileNames[0] : `${droppedFiles.length} file`;
+    setUploadProgress({ loaded: 0, total: totalSize, percent: 0, fileName });
+
+    const xhr = new XMLHttpRequest();
+    setUploadXhr(xhr);
+    xhr.upload.addEventListener('progress', (ev) => {
+      if (ev.lengthComputable) {
+        setUploadProgress({ loaded: ev.loaded, total: ev.total, percent: Math.round((ev.loaded / ev.total) * 100), fileName });
+      }
+    });
+    xhr.addEventListener('load', () => {
+      setUploadXhr(null);
+      setUploadProgress(null);
+      if (xhr.status >= 200 && xhr.status < 300) loadFiles();
+      else alert('Errore upload');
+    });
+    xhr.addEventListener('error', () => { setUploadXhr(null); setUploadProgress(null); alert('Errore connessione'); });
+    xhr.addEventListener('abort', () => { setUploadXhr(null); setUploadProgress(null); });
+    xhr.open('POST', `/api/servers/${serverId}/upload`);
+    xhr.timeout = 10 * 60 * 1000;
+    xhr.send(formData);
+  };
+
   return (
     <div className="file-manager">
       {/* Toolbar */}
@@ -805,7 +981,36 @@ export default function FileManager({ serverId, serverName }) {
 
       <div className="fm-container">
         {/* File List */}
-        <div className="fm-file-list">
+        <div
+          className={`fm-file-list${externalDragOver ? ' fm-drop-active' : ''}`}
+          onDragOver={handleExternalDragOver}
+          onDragEnter={handleExternalDragOver}
+          onDragLeave={handleExternalDragLeave}
+          onDrop={handleExternalDrop}
+        >
+          {externalDragOver && (
+            <div className="fm-drop-overlay">
+              <Upload size={32} />
+              <span>Rilascia per caricare</span>
+            </div>
+          )}
+
+          {/* Selection action bar */}
+          {selectedItems.size > 0 && (
+            <div className="fm-selection-bar">
+              <span className="fm-selection-count">{selectedItems.size} selezionati</span>
+              <button className="btn btn-sm btn-secondary" onClick={() => openMoveModal([...selectedItems])}>
+                <FolderOpen size={14} /> Sposta
+              </button>
+              <button className="btn btn-sm btn-danger" onClick={deleteSelected}>
+                <Trash2 size={14} /> Elimina
+              </button>
+              <button className="btn btn-sm btn-secondary" onClick={() => setSelectedItems(new Set())}>
+                <X size={14} /> Deseleziona
+              </button>
+            </div>
+          )}
+
           {loading ? (
             <div className="fm-loading">Caricamento...</div>
           ) : files.length === 0 ? (
@@ -816,6 +1021,14 @@ export default function FileManager({ serverId, serverName }) {
             <table className="fm-table">
               <thead>
                 <tr>
+                  <th className="fm-th-check">
+                    <input
+                      type="checkbox"
+                      checked={selectedItems.size > 0 && selectedItems.size === getSortedFiles().length}
+                      ref={el => { if (el) el.indeterminate = selectedItems.size > 0 && selectedItems.size < getSortedFiles().length; }}
+                      onChange={selectAll}
+                    />
+                  </th>
                   <th className="fm-sortable" onClick={() => handleSort('name')}>
                     <span className="fm-sortable-content">Nome <SortIcon column="name" /></span>
                   </th>
@@ -829,41 +1042,71 @@ export default function FileManager({ serverId, serverName }) {
                 </tr>
               </thead>
               <tbody>
-                {getSortedFiles().map(file => (
-                  <tr key={file.path} className={selectedFile?.path === file.path ? 'selected' : ''}>
-                    <td onClick={() => openFile(file)} className="fm-file-cell">
-                      <span className="fm-icon">
-                        {getFileIcon(file)}
-                      </span>
-                      {file.name}
-                    </td>
-                    <td>{formatSize(file.size)}</td>
-                    <td>{formatDate(file.modified)}</td>
-                    <td>
-                      <div className="fm-actions-cell">
-                        {file.type === 'file' && (
-                          <button className="btn-icon-small" onClick={() => downloadFile(file)} title="Download">
-                            <Download size={14} />
+                {getSortedFiles().map(file => {
+                  const isSelected = selectedItems.has(file.path);
+                  const isDragTarget = dragOverFolder === file.path;
+                  const isDraggingThis = draggingItem?.path === file.path;
+                  return (
+                    <tr
+                      key={file.path}
+                      className={[
+                        selectedFile?.path === file.path ? 'selected' : '',
+                        isSelected ? 'fm-row-checked' : '',
+                        isDragTarget ? 'fm-drag-target' : '',
+                        isDraggingThis ? 'fm-dragging' : ''
+                      ].filter(Boolean).join(' ')}
+                      draggable
+                      onDragStart={(e) => handleRowDragStart(e, file)}
+                      onDragEnd={handleRowDragEnd}
+                      onDragOver={file.type === 'directory' ? (e) => handleFolderDragOver(e, file) : undefined}
+                      onDragLeave={file.type === 'directory' ? () => setDragOverFolder(null) : undefined}
+                      onDrop={file.type === 'directory' ? (e) => handleFolderDrop(e, file) : undefined}
+                    >
+                      <td className="fm-td-check" onClick={(e) => toggleSelect(file.path, e)}>
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => toggleSelect(file.path, e)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      </td>
+                      <td onClick={() => openFile(file)} className="fm-file-cell">
+                        <span className="fm-icon">
+                          {getFileIcon(file)}
+                        </span>
+                        {file.name}
+                      </td>
+                      <td>{formatSize(file.size)}</td>
+                      <td>{formatDate(file.modified)}</td>
+                      <td>
+                        <div className="fm-actions-cell">
+                          {file.type === 'file' && (
+                            <button className="btn-icon-small" onClick={() => downloadFile(file)} title="Download">
+                              <Download size={14} />
+                            </button>
+                          )}
+                          <button className="btn-icon-small" onClick={() => startRename(file)} title="Rinomina">
+                            <Edit3 size={14} />
                           </button>
-                        )}
-                        <button className="btn-icon-small" onClick={() => startRename(file)} title="Rinomina">
-                          <Edit3 size={14} />
-                        </button>
-                        <button className="btn-icon-small" onClick={() => zipItem(file)} title="Comprimi">
-                          <PackageOpen size={14} />
-                        </button>
-                        {(file.name.endsWith('.zip') || file.name.endsWith('.tar') || file.name.endsWith('.tar.gz') || file.name.endsWith('.tgz')) && (
-                          <button className="btn-icon-small" onClick={() => unzipItem(file)} title="Estrai">
+                          <button className="btn-icon-small" onClick={() => openMoveModal([file.path])} title="Sposta">
                             <FolderOpen size={14} />
                           </button>
-                        )}
-                        <button className="btn-icon-small danger" onClick={() => deleteItem(file)} title="Elimina">
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <button className="btn-icon-small" onClick={() => zipItem(file)} title="Comprimi">
+                            <PackageOpen size={14} />
+                          </button>
+                          {(file.name.endsWith('.zip') || file.name.endsWith('.tar') || file.name.endsWith('.tar.gz') || file.name.endsWith('.tgz')) && (
+                            <button className="btn-icon-small" onClick={() => unzipItem(file)} title="Estrai">
+                              <FolderOpen size={14} />
+                            </button>
+                          )}
+                          <button className="btn-icon-small danger" onClick={() => deleteItem(file)} title="Elimina">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
@@ -1018,6 +1261,55 @@ export default function FileManager({ serverId, serverName }) {
                 Crea
               </button>
               <button className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>
+                Annulla
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Move Modal */}
+      {showMoveModal && (
+        <div className="modal-overlay" onClick={() => setShowMoveModal(false)}>
+          <div className="modal-content fm-move-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Sposta {itemsToMove.length} elemento/i</h2>
+            <div className="fm-move-dest-label">
+              Destinazione: <code>{moveDestPath || '/'}</code>
+            </div>
+            <div className="fm-move-browser">
+              {moveModalBrowsePath && (
+                <div
+                  className="fm-move-folder-row fm-move-up"
+                  onClick={() => {
+                    const parts = moveModalBrowsePath.split('/').filter(Boolean);
+                    parts.pop();
+                    loadMoveModalFolders(parts.join('/'));
+                  }}
+                >
+                  <ChevronUp size={14} /> ..
+                </div>
+              )}
+              {moveModalLoading ? (
+                <div style={{ padding: 8, opacity: 0.5 }}>Caricamento...</div>
+              ) : moveModalFolders.length === 0 ? (
+                <div style={{ padding: 8, opacity: 0.5 }}>Nessuna sottocartella</div>
+              ) : (
+                moveModalFolders.map(f => (
+                  <div
+                    key={f.path}
+                    className={`fm-move-folder-row${moveDestPath === f.path ? ' active' : ''}`}
+                    onClick={() => { setMoveDestPath(f.path); loadMoveModalFolders(f.path); }}
+                  >
+                    <Folder size={14} /> {f.name}
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="modal-actions">
+              <button className="btn btn-primary" onClick={executeMoveItems}>
+                Sposta qui
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowMoveModal(false)}>
                 Annulla
               </button>
             </div>

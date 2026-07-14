@@ -217,7 +217,8 @@ function CreateServerModal({ onClose, onCreate }) {
           ...(selectedModpackVersion ? {
             versionId: selectedModpackVersion.id,
             versionNumber: selectedModpackVersion.versionNumber || selectedModpackVersion.name,
-            versionDownloadUrl: selectedModpackVersion.downloadUrl || null
+            versionDownloadUrl: selectedModpackVersion.downloadUrl || null,
+            serverPackFileId: selectedModpackVersion.serverPackFileId || null
           } : {})
         }
       } : {})
@@ -309,22 +310,32 @@ function CreateServerModal({ onClose, onCreate }) {
                     {modpackVersionsLoading ? (
                       <div style={{ fontSize: '13px', opacity: 0.6 }}>Caricamento versioni...</div>
                     ) : (
-                      <select
-                        value={selectedModpackVersion?.id || ''}
-                        onChange={e => {
-                          const v = modpackVersions.find(v => v.id === e.target.value) || null;
-                          setSelectedModpackVersion(v);
-                        }}
-                        style={{ width: '100%' }}
-                      >
-                        <option value="">Ultima versione disponibile</option>
-                        {modpackVersions.map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.versionNumber || v.name}
-                            {v.gameVersions?.length ? ` — MC ${v.gameVersions[0]}` : ''}
-                          </option>
-                        ))}
-                      </select>
+                      <>
+                        <select
+                          value={selectedModpackVersion?.id || ''}
+                          onChange={e => {
+                            const v = modpackVersions.find(v => v.id === e.target.value) || null;
+                            setSelectedModpackVersion(v);
+                          }}
+                          style={{ width: '100%' }}
+                        >
+                          <option value="">Ultima versione disponibile</option>
+                          {modpackVersions.map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.versionNumber || v.name}
+                              {v.gameVersions?.length ? ` — MC ${v.gameVersions[0]}` : ''}
+                              {v.source === 'curseforge' && v.serverPackFileId ? ' [Server Pack]' : ''}
+                            </option>
+                          ))}
+                        </select>
+                        {selectedModpackVersion?.source === 'curseforge' && (
+                          <div style={{ fontSize: '12px', marginTop: '5px', opacity: 0.8 }}>
+                            {selectedModpackVersion.serverPackFileId
+                              ? '✓ Server Pack disponibile — il file ID verrà salvato per riferimento'
+                              : '⚠ Nessun Server Pack — alcune mod client potrebbero essere escluse automaticamente'}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

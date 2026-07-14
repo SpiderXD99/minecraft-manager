@@ -1096,6 +1096,7 @@ body {
   flex: 1;
   overflow-y: auto;
   background: #0f1429;
+  position: relative;
 }
 
 .fm-file-list::-webkit-scrollbar {
@@ -1170,6 +1171,117 @@ body {
   gap: 0.375rem;
   align-items: center;
 }
+
+/* Checkbox column */
+.fm-th-check, .fm-td-check {
+  width: 36px;
+  padding: 0.5rem 0.5rem 0.5rem 1rem !important;
+  cursor: default;
+}
+.fm-td-check input[type="checkbox"],
+.fm-th-check input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: #3b82f6;
+}
+
+/* Selected row highlight */
+.fm-table tbody tr.fm-row-checked {
+  background: rgba(59,130,246,0.12);
+}
+.fm-table tbody tr.fm-row-checked:hover {
+  background: rgba(59,130,246,0.18);
+}
+
+/* Drag-over folder highlight */
+.fm-table tbody tr.fm-drag-target {
+  background: rgba(59,130,246,0.25);
+  outline: 2px solid #3b82f6;
+  outline-offset: -2px;
+}
+
+/* Row being dragged */
+.fm-table tbody tr.fm-dragging {
+  opacity: 0.4;
+}
+
+/* External drop overlay */
+.fm-file-list.fm-drop-active {
+  outline: 2px dashed #3b82f6;
+  outline-offset: -4px;
+}
+.fm-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(59,130,246,0.15);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 1rem;
+  color: #93c5fd;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Selection action bar */
+.fm-selection-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(59,130,246,0.1);
+  border-bottom: 1px solid rgba(59,130,246,0.25);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.fm-selection-count {
+  font-size: 0.8rem;
+  color: #93c5fd;
+  margin-right: 4px;
+}
+
+/* Move modal */
+.fm-move-modal {
+  min-width: 380px;
+}
+.fm-move-dest-label {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin-bottom: 10px;
+}
+.fm-move-dest-label code {
+  color: #e2e8f0;
+  background: #151b35;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.fm-move-browser {
+  border: 1px solid #1e2747;
+  border-radius: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 12px;
+  background: #0a0e1f;
+}
+.fm-move-folder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #e2e8f0;
+  border-bottom: 1px solid #1e2747;
+  transition: background 0.15s;
+}
+.fm-move-folder-row:last-child { border-bottom: none; }
+.fm-move-folder-row:hover { background: #151b35; }
+.fm-move-folder-row.active { background: rgba(59,130,246,0.2); color: #93c5fd; }
+.fm-move-up { color: #9ca3af; }
 
 .fm-file-viewer {
   width: 50%;

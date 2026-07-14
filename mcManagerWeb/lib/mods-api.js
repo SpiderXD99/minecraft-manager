@@ -309,18 +309,21 @@ async function getCurseforgeVersions(projectId, options = {}) {
 
   const data = await curseforgeFetch(`/mods/${projectId}/files?${params}`);
 
-  return data.data.map(file => ({
-    id: file.id.toString(),
-    name: file.displayName,
-    versionNumber: file.displayName,
-    gameVersions: file.gameVersions || [],
-    loaders: file.gameVersions?.filter(v => ['Forge', 'Fabric', 'NeoForge', 'Quilt'].includes(v)) || [],
-    downloadUrl: file.downloadUrl,
-    fileName: file.fileName,
-    fileSize: file.fileLength,
-    datePublished: file.fileDate,
-    source: 'curseforge'
-  }));
+  return data.data
+    .filter(file => !file.isServerPack)
+    .map(file => ({
+      id: file.id.toString(),
+      name: file.displayName,
+      versionNumber: file.displayName,
+      gameVersions: file.gameVersions || [],
+      loaders: file.gameVersions?.filter(v => ['Forge', 'Fabric', 'NeoForge', 'Quilt'].includes(v)) || [],
+      downloadUrl: file.downloadUrl,
+      fileName: file.fileName,
+      fileSize: file.fileLength,
+      datePublished: file.fileDate,
+      source: 'curseforge',
+      serverPackFileId: file.serverPackFileId ? file.serverPackFileId.toString() : null,
+    }));
 }
 
 // Get download URL for a specific version
